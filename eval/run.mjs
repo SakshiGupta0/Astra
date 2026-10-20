@@ -22,17 +22,25 @@ const MODELS = {
   "claude-haiku-5-5": { provider: "anthropic", inPerM: 0.10, outPerM: 0.50 },
   mock: { provider: "mock", inPerM: 0, outPerM: 0 },
 };
-const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-2.5-flash-lite", "claude-haiku-5-5"]);
+const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-2.5-flash-lite"]);
 
 async function callGemini(model, sys, user) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY not set");
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 700 } }),
-  });
-  const j = await r.json();
+  // Free-tier keys have low per-minute limits: retry 429 / 503 with the server's suggested delay.
+  let r, j;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 700 } }),
+    });
+    j = await r.json().catch(() => ({}));
+    if (r.status !== 429 && r.status !== 503) break;
+    const hinted = (j.error?.details ?? []).find(d => d.retryDelay)?.retryDelay;
+    const waitS = hinted ? parseFloat(hinted) + 1 : 10 * (attempt + 1);
+    await new Promise(res => setTimeout(res, waitS * 1000));
+  }
   if (!r.ok) throw new Error(`Gemini ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
   const text = (j.candidates?.[0]?.content?.parts ?? []).map(p => p.text ?? "").join("");
   return { text, inTok: j.usageMetadata?.promptTokenCount ?? 0, outTok: j.usageMetadata?.candidatesTokenCount ?? 0 };
@@ -93,7 +101,7 @@ async function main() {
   for (const model of chosen) {
     if (!MODELS[model]) { console.error(`Unknown model ${model}`); process.exit(2); }
     const queue = [...CASES];
-    const workers = Array.from({ length: MOCK ? 8 : 3 }, async () => {
+    const workers = Array.from({ length: MOCK ? 8 : 2 }, async () => {
       while (queue.length) { const c = queue.shift(); rows.push(await runOne(model, c)); }
     });
     await Promise.all(workers);

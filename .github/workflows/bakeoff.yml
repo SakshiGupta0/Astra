@@ -1,11 +1,12 @@
 name: Model bake-off
-# Run manually from the Actions tab after adding GEMINI_API_KEY and ANTHROPIC_API_KEY as repository secrets.
+# Run manually from the Actions tab after adding GEMINI_API_KEY as a repository secret.
+# Add ANTHROPIC_API_KEY too and include claude-haiku-5-5 in the models input to compare.
 on:
   workflow_dispatch:
     inputs:
       models:
         description: Comma-separated models
-        default: gemini-2.5-flash-lite,claude-haiku-5-5
+        default: gemini-2.5-flash-lite
 jobs:
   bakeoff:
     runs-on: ubuntu-latest
