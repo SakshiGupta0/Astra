@@ -112,8 +112,8 @@ class SmokeTest {
         onboard("I don't know", hour = null, minute = null)
         waitTag("whereYouAre")
         rule.onNodeWithTag("tab_CHART").performClick()
-        rule.onNodeWithText("Moon chart (Chandra lagna)").assertIsDisplayed()
-        rule.onNodeWithText("Needs birth time").assertIsDisplayed()
+        rule.onNodeWithText("Moon chart (Chandra lagna)").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Needs birth time").performScrollTo().assertIsDisplayed()
         shot("20_chart_unknown_time")
         assertNull(app.profiles.profile!!.birthTime)
     }

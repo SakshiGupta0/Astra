@@ -102,8 +102,9 @@ fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, 
                     drawLine(c.border.copy(alpha = 0.5f), Offset(mx, hH - 4f), Offset(mx, size.height), 1f)
                     drawLabel(measurer, Fmt.monthYear(m, z), metaStyle, Offset(mx + 4f, 2f), monthW.toPx() - 6f)
                 }
-                // bands
-                items.forEach { it.draw(this, ::x, hH, rH, measurer, labelStyle) }
+                // bands — labels stick to the visible left edge so long periods stay named while scrolling
+                val visibleLeft = scroll.value.toFloat()
+                items.forEach { it.draw(this, ::x, hH, rH, measurer, labelStyle, visibleLeft) }
                 // today
                 val tx = x(session.at)
                 drawLine(c.accent, Offset(tx, hH - 6f), Offset(tx, size.height), 3f)
@@ -113,7 +114,7 @@ fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, 
     }
 }
 
-private fun BandItem.draw(s: DrawScope, x: (Instant) -> Float, hH: Float, rH: Float, m: TextMeasurer, style: TextStyle) = with(s) {
+private fun BandItem.draw(s: DrawScope, x: (Instant) -> Float, hH: Float, rH: Float, m: TextMeasurer, style: TextStyle, visibleLeft: Float) = with(s) {
     val x0 = x(start); val x1 = x(end)
     val top = hH + row * rH + rH * 0.15f
     val h = rH * 0.7f
@@ -121,7 +122,8 @@ private fun BandItem.draw(s: DrawScope, x: (Instant) -> Float, hH: Float, rH: Fl
     drawRoundRect(color.copy(alpha = 0.32f), Offset(x0 + 1f, top), Size(w, h), CornerRadius(8f, 8f))
     drawRoundRect(color.copy(alpha = 0.85f), Offset(x0 + 1f, top), Size(w, h), CornerRadius(8f, 8f),
         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f, pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(8f, 6f)) else null))
-    if (w > 28f) drawLabel(m, label, style, Offset(x0 + 8f, top + h / 2 - 8f), w - 12f)
+    val lx = maxOf(x0 + 8f, visibleLeft + 8f)
+    if (x1 - lx > 28f) drawLabel(m, label, style, Offset(lx, top + h / 2 - 8f), x1 - lx - 4f)
 }
 
 private fun DrawScope.drawLabel(m: TextMeasurer, text: String, style: TextStyle, at: Offset, maxW: Float) {
