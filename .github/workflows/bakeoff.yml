@@ -7,6 +7,8 @@ on:
       models:
         description: Comma-separated models
         default: gemini-2.5-flash-lite
+permissions:
+  contents: write
 jobs:
   bakeoff:
     runs-on: ubuntu-latest
@@ -21,3 +23,12 @@ jobs:
       - run: cat eval/results/*/summary.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with: { name: bakeoff-results, path: eval/results }
+      - name: Save results to the bakeoff-results branch (synthetic data only)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          mkdir -p /tmp/res && cp -r eval/results/* /tmp/res/
+          git fetch origin bakeoff-results || true
+          if git rev-parse --verify origin/bakeoff-results >/dev/null 2>&1; then git checkout -B bakeoff-results origin/bakeoff-results; else git checkout --orphan bakeoff-results && git rm -rf . -q; fi
+          mkdir -p runs && cp -r /tmp/res/* runs/
+          git add runs && git commit -m "Bake-off results ${{ github.run_id }}" && git push origin bakeoff-results
