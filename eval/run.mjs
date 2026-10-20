@@ -31,13 +31,16 @@ async function callGemini(model, sys, user) {
   if (!key) throw new Error("GEMINI_API_KEY not set");
   // Free-tier keys have low per-minute limits: retry 429 / 503 with the server's suggested delay.
   let r, j;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 90_000); // never hang on one request
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key },
+      method: "POST", signal: ctrl.signal, headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 700 } }),
     });
     j = await r.json().catch(() => ({}));
+    clearTimeout(timer);
     if (r.status !== 429 && r.status !== 503) break;
     // A daily quota won't recover within this run: stop retrying and report it.
     if (/per ?day|PerDay/i.test(JSON.stringify(j))) throw new Error(`Gemini daily free-tier quota reached for ${model}`);
@@ -97,6 +100,10 @@ async function runOne(model, c) {
   }
 }
 
+const START = Date.now();
+// Stop starting new calls after this long so results are always written (free tiers can be slow).
+const BUDGET_MS = (parseFloat(pick("--budget-min") ?? "30")) * 60_000;
+
 async function main() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outDir = path.join(here, "results", MOCK ? `mock-${stamp}` : stamp);
@@ -106,7 +113,11 @@ async function main() {
     if (!MODELS[model]) { console.error(`Unknown model ${model}`); process.exit(2); }
     const queue = [...CASES];
     const workers = Array.from({ length: MOCK ? 8 : 2 }, async () => {
-      while (queue.length) { const c = queue.shift(); rows.push(await runOne(model, c)); }
+      while (queue.length) {
+        if (Date.now() - START > BUDGET_MS) { queue.length = 0; break; }
+        const c = queue.shift(); const row = await runOne(model, c); rows.push(row);
+        console.log(`${model} ${c.id} ${row.pass ? "pass" : "FAIL " + row.fails[0]} (${row.ms} ms)`);
+      }
     });
     await Promise.all(workers);
   }
@@ -117,6 +128,7 @@ async function main() {
   md += `| Model | Pass | Critical sets pass | Errors | Median latency | Avg tokens in/out | Cost per 1,000 answers |\n|---|---|---|---|---|---|---|\n`;
   for (const model of chosen) {
     const r = rows.filter(x => x.model === model);
+    if (!r.length) { md += `| ${model} | not run (time budget) | | | | | |\n`; continue; }
     const pass = r.filter(x => x.pass).length;
     const crit = r.filter(x => critical.has(x.set)); const critPass = crit.filter(x => x.pass).length;
     const errs = r.filter(x => x.fails.some(f => f.startsWith("error"))).length;
@@ -125,6 +137,7 @@ async function main() {
     const cost = r.reduce((s, x) => s + x.cost, 0) / r.length * 1000;
     md += `| ${model} | ${pass}/${r.length} | ${critPass}/${crit.length} | ${errs} | ${lat} ms | ${ain} / ${aout} | $${cost.toFixed(3)} |\n`;
   }
+  md += `\nCases run per model: ${chosen.map(m => `${m} ${rows.filter(x => x.model === m).length}/${CASES.length}`).join(", ")}\n`;
   md += `\n## By set\n\n| Set | ${chosen.join(" | ")} |\n|---|${chosen.map(() => "---").join("|")}|\n`;
   for (const set of [...new Set(CASES.map(c => c.set))]) {
     md += `| ${set}${critical.has(set) ? " *" : ""} | ${chosen.map(m => { const r = rows.filter(x => x.model === m && x.set === set); return `${r.filter(x => x.pass).length}/${r.length}`; }).join(" | ")} |\n`;
