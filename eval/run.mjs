@@ -18,11 +18,13 @@ const pick = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 
 
 // List prices per million tokens (third-party trackers, 20 Oct 2026). Verify before deciding.
 const MODELS = {
-  "gemini-2.5-flash-lite": { provider: "gemini", inPerM: 0.10, outPerM: 0.40 },
+  "gemini-3.1-flash-lite": { provider: "gemini", inPerM: 0.25, outPerM: 1.50 },
+  "gemini-3.5-flash-lite": { provider: "gemini", inPerM: 0.30, outPerM: 2.50 },
+  "gemini-2.5-flash-lite": { provider: "gemini", inPerM: 0.10, outPerM: 0.40 }, // closed to new users (Oct 2026)
   "claude-haiku-5-5": { provider: "anthropic", inPerM: 0.10, outPerM: 0.50 },
   mock: { provider: "mock", inPerM: 0, outPerM: 0 },
 };
-const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-2.5-flash-lite"]);
+const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]);
 
 async function callGemini(model, sys, user) {
   const key = process.env.GEMINI_API_KEY;
@@ -131,6 +133,8 @@ async function main() {
   fs.writeFileSync(path.join(outDir, "summary.md"), md);
   console.log(md.split("\n## By set")[0]);
   console.log(`Full results: ${outDir}`);
+  const errored = rows.filter(r => r.fails.some(f => f.startsWith("error"))).length;
+  if (errored > rows.length / 2) { console.error(`${errored} of ${rows.length} calls errored — run failed. First error: ${rows.find(r => r.fails.some(f => f.startsWith("error"))).fails[0]}`); process.exit(1); }
   if (MOCK && rows.some(r => !r.pass)) { console.error("Mock run should pass every check:"); rows.filter(r => !r.pass).forEach(r => console.error(r.id, r.fails)); process.exit(1); }
 }
 main();

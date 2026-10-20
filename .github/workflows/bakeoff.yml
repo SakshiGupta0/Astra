@@ -6,7 +6,7 @@ on:
     inputs:
       models:
         description: Comma-separated models
-        default: gemini-2.5-flash-lite
+        default: gemini-3.1-flash-lite,gemini-3.5-flash-lite
 permissions:
   contents: write
 jobs:
@@ -20,10 +20,13 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      - run: cat eval/results/*/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - if: always()
+        run: cat eval/results/*/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
         with: { name: bakeoff-results, path: eval/results }
       - name: Save results to the bakeoff-results branch (synthetic data only)
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898+github-actions[bot]@users.noreply.github.com"
