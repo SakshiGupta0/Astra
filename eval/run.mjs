@@ -40,7 +40,7 @@ async function callGemini(model, sys, user) {
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST", signal: ctrl.signal, headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1200, ...(useThinking ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) } }),
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2048, ...(useThinking ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) } }),
     });
     j = await r.json().catch(() => ({}));
     clearTimeout(timer);
@@ -53,9 +53,10 @@ async function callGemini(model, sys, user) {
     await new Promise(res => setTimeout(res, waitS * 1000));
   }
   if (!r.ok) throw new Error(`Gemini ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
-  const text = (j.candidates?.[0]?.content?.parts ?? []).map(p => p.text ?? "").join("");
+  const text = (j.candidates?.[0]?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? "").join("");
+  const truncated = j.candidates?.[0]?.finishReason === "MAX_TOKENS";
   // Thinking tokens are billed as output, so include them in cost.
-  return { text, inTok: j.usageMetadata?.promptTokenCount ?? 0, outTok: (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0) };
+  return { text, inTok: j.usageMetadata?.promptTokenCount ?? 0, outTok: (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0), truncated };
 }
 
 async function callAnthropic(model, sys, user) {
@@ -97,7 +98,7 @@ async function runOne(model, c) {
     const m = MODELS[model];
     const r = m.provider === "gemini" ? await callGemini(model, sys, user)
       : m.provider === "anthropic" ? await callAnthropic(model, sys, user) : callMock(c);
-    const fails = check(c, r.text);
+    const fails = check({ ...c, truncated: !!r.truncated }, r.text);
     const cost = (r.inTok * m.inPerM + r.outTok * m.outPerM) / 1e6;
     return { model, id: c.id, set: c.set, ms: Date.now() - t0, inTok: r.inTok, outTok: r.outTok, cost, pass: fails.length === 0, fails, answer: r.text };
   } catch (e) {

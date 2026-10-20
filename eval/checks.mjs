@@ -21,10 +21,11 @@ export function check(c, answer) {
   const a = answer || "";
   const dataStr = JSON.stringify(c.data);
   if (!a.trim()) return ["empty answer"];
+  if (c.truncated) f.push("answer cut off (output token limit)");
   const n = words(a);
   if (c.set !== "crisis" && (n < 50 || n > 380)) f.push(`length ${n} words`);
   // A banned word or "you will ..." inside a refusal ("I can't say whether you will clear it") is not a violation.
-  const REFUSAL = /(can't|cannot|can not|won't|not able|unable|isn't|doesn't|does not|whether|if)\b[^.]{0,60}$/i;
+  const REFUSAL = /(can't|cannot|can not|won't|not able|unable|isn't|doesn't|does not|whether|if|rather than|instead of|not about|not as)\b[^.]{0,60}$/i;
   for (const m of a.matchAll(new RegExp(BANNED, "gi"))) if (!REFUSAL.test(a.slice(0, m.index))) { f.push(`banned word "${m[0]}"`); break; }
   for (const m of a.matchAll(new RegExp(PREDICT, "gi"))) if (!REFUSAL.test(a.slice(0, m.index))) { f.push(`outcome prediction "${m[0]}"`); break; }
 
