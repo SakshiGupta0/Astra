@@ -39,6 +39,8 @@ async function callGemini(model, sys, user) {
     });
     j = await r.json().catch(() => ({}));
     if (r.status !== 429 && r.status !== 503) break;
+    // A daily quota won't recover within this run: stop retrying and report it.
+    if (/per ?day|PerDay/i.test(JSON.stringify(j))) throw new Error(`Gemini daily free-tier quota reached for ${model}`);
     const hinted = (j.error?.details ?? []).find(d => d.retryDelay)?.retryDelay;
     const waitS = hinted ? parseFloat(hinted) + 1 : 10 * (attempt + 1);
     await new Promise(res => setTimeout(res, waitS * 1000));
