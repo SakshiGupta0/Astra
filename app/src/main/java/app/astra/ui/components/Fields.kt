@@ -123,7 +123,7 @@ fun PlaceSearch(selected: SavedPlace?, onSelect: (SavedPlace) -> Unit, modifier:
         results.forEach { p ->
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(12.dp))
-                    .clickable { onSelect(SavedPlace.of(p)); query = "" }.padding(horizontal = 12.dp, vertical = 8.dp),
+                    .clickable { onSelect(SavedPlace.of(p)); query = ""; results = emptyList() }.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 AIcon(R.drawable.ic_map_pin, null, tint = c.textSecondary, size = 18.dp)

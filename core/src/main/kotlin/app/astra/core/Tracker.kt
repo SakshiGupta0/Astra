@@ -121,7 +121,7 @@ object TransitSearch {
     fun refineSignChange(g: Graha, a0: Instant, b0: Instant): Instant {
         var a = a0; var b = b0
         val sa = signAt(g, a)
-        while (Duration.between(a, b).toSeconds() > 60) {
+        while (Duration.between(a, b).seconds > 60) {
             val m = a.plusMillis(Duration.between(a, b).toMillis() / 2)
             if (signAt(g, m) == sa) a = m else b = m
         }
@@ -131,7 +131,7 @@ object TransitSearch {
     private fun refineStation(g: Graha, a0: Instant, b0: Instant): Instant {
         var a = a0; var b = b0
         val sa = speedAt(g, a) < 0
-        while (Duration.between(a, b).toSeconds() > 600) {
+        while (Duration.between(a, b).seconds > 600) {
             val m = a.plusMillis(Duration.between(a, b).toMillis() / 2)
             if ((speedAt(g, m) < 0) == sa) a = m else b = m
         }

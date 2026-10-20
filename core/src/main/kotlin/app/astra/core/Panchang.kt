@@ -78,7 +78,7 @@ object PanchangCalculator {
             val b = a.plus(Duration.ofMinutes(60))
             if (f(b) != v0) {
                 var lo = a; var hi = b
-                while (Duration.between(lo, hi).toSeconds() > 60) {
+                while (Duration.between(lo, hi).seconds > 60) {
                     val m = lo.plusMillis(Duration.between(lo, hi).toMillis() / 2)
                     if (f(m) == v0) lo = m else hi = m
                 }

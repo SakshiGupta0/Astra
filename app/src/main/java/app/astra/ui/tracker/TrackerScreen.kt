@@ -44,6 +44,10 @@ import app.astra.ui.Session
 import app.astra.ui.components.AIcon
 import app.astra.ui.components.AstraCard
 import app.astra.ui.components.Loading
+import app.astra.ui.components.Notice
+import app.astra.ui.error
+import app.astra.ui.rememberCalc
+import app.astra.ui.valueOrNull
 import app.astra.ui.components.Pill
 import app.astra.ui.components.SectionTitle
 import app.astra.ui.components.Segmented
@@ -54,14 +58,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun TrackerScreen(session: Session) {
     var tab by rememberSaveable { mutableStateOf(0) }
-    val positions by produceState<List<NowPosition>?>(null, session) { value = withContext(Dispatchers.Default) { session.positions } }
-    val timeline by produceState<Timeline?>(null, session) { value = withContext(Dispatchers.Default) { session.timelineNow } }
+    val posCalc by rememberCalc(session) { session.positions }
+    val tlCalc by rememberCalc(session) { session.timelineNow }
+    val positions = posCalc.valueOrNull
+    val timeline = tlCalc.valueOrNull
     val c = Astra.colors
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
             Text("Graha Tracker", style = Astra.type.title, color = c.text)
             Text("${Fmt.date(session.at, session.zone)} · ${session.profile.currentPlace.label.substringBefore(',')}", style = Astra.type.meta, color = c.textSecondary)
             Segmented(listOf("Now", "Timeline"), tab, { tab = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp))
+            (posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
         }
         if (tab == 0) NowTab(session, positions, timeline) else TimelineTab(session, timeline)
     }

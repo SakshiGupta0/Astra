@@ -29,6 +29,9 @@ import app.astra.core.Panchang
 import app.astra.core.Timeline
 import app.astra.ui.Fmt
 import app.astra.ui.Session
+import app.astra.ui.error
+import app.astra.ui.rememberCalc
+import app.astra.ui.valueOrNull
 import app.astra.ui.components.AIcon
 import app.astra.ui.components.AstraCard
 import app.astra.ui.components.KeyValue
@@ -47,9 +50,12 @@ import kotlinx.coroutines.withContext
 fun TodayScreen(session: Session) {
     val c = Astra.colors
     val z = session.zone
-    val panchang by produceState<Panchang?>(null, session) { value = withContext(Dispatchers.Default) { session.panchangToday } }
-    val positions by produceState<List<NowPosition>?>(null, session) { value = withContext(Dispatchers.Default) { session.positions } }
-    val timeline by produceState<Timeline?>(null, session) { value = withContext(Dispatchers.Default) { session.timelineNow } }
+    val pCalc by rememberCalc(session) { session.panchangToday }
+    val posCalc by rememberCalc(session) { session.positions }
+    val tlCalc by rememberCalc(session) { session.timelineNow }
+    val panchang = pCalc.valueOrNull
+    val positions = posCalc.valueOrNull
+    val timeline = tlCalc.valueOrNull
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().height(150.dp).background(c.backgroundAlt)) {
             Starfield(Modifier.fillMaxSize(), count = 45, seed = session.today.dayOfYear)
@@ -61,6 +67,7 @@ fun TodayScreen(session: Session) {
             }
         }
         Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            (pCalc.error ?: posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
             // Your day
             AstraCard(Modifier.testTag("yourDay")) {
                 Text("Your day", style = Astra.type.heading, color = c.text)
