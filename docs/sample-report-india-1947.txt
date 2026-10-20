@@ -1,0 +1,92 @@
+BIRTH  1947-08-15 00:00 (KNOWN) at 28.6139, 77.209 Asia/Kolkata
+UTC    1947-08-14T18:30:00Z    method: calc-1: lahiri-mean(SE-compatible) | whole-sign | mean-node | vimshottari-365.25
+
+LAGNA  Vrishabha 7°43′
+Graha     Position           Nakshatra            Pada House From Moon
+Sun       Karka 27°59′       Ashlesha             4    3     1
+Moon      Karka 3°59′        Pushya               1    3     1
+Mars      Mithuna 7°27′      Ardra                1    2     12
+Mercury   Karka 13°40′       Pushya               4    3     1
+Jupiter   Tula 25°52′        Vishakha             2    6     4
+Venus     Karka 22°33′       Ashlesha             2    3     1
+Saturn    Karka 20°28′       Ashlesha             2    3     1
+Rahu      Vrishabha 5°04′    Krittika             3    1     11
+Ketu      Vrishchika 5°04′   Anuradha             1    7     5
+
+DASHA  born in Pushya → Saturn mahadasha, balance 18.07 years
+  now: Mars / Rahu / Venus
+  maha 10 Sep 2025 – 10 Sep 2032;  antar 6 Feb 2026 – 24 Feb 2027;  pratyantar until 13 Dec 2026
+  Saturn   10 Sep 1946 – 10 Sep 1965
+  Mercury  10 Sep 1965 – 10 Sep 1982
+  Ketu     10 Sep 1982 – 10 Sep 1989
+  Venus    10 Sep 1989 – 10 Sep 2009
+  Sun      10 Sep 2009 – 10 Sep 2015
+  Moon     10 Sep 2015 – 10 Sep 2025
+  Mars     10 Sep 2025 – 10 Sep 2032
+  Rahu     10 Sep 2032 – 10 Sep 2050
+  Jupiter  10 Sep 2050 – 10 Sep 2066
+
+TRACKER NOW (20 Oct 2026)
+  Sun      Tula 2°58′       Chitra                4th   → Vrishchika on 16 Nov 2026
+  Moon     Makara 24°14′    Dhanishta             7th*  → Kumbha on 21 Oct 2026
+  Mars     Karka 18°26′     Ashlesha              1st   → Simha on 12 Nov 2026
+  Mercury  Tula 25°54′      Vishakha              4th*  → Vrishchika on 2 Dec 2026
+  Jupiter  Karka 28°33′     Ashlesha              1st   → Simha on 31 Oct 2026
+  Venus    Tula 8°39′       Swati             R   4th*  → Kanya on 6 Nov 2026
+  Saturn   Meena 15°49′     Uttara Bhadrapada R   9th   → Mesha on 3 Jun 2027
+  Rahu     Kumbha 2°26′     Dhanishta             8th   → Makara on 5 Dec 2026
+  Ketu     Simha 2°26′      Magha                 2nd   → Karka on 5 Dec 2026
+  (* = classically favourable house from Moon)
+
+PERIOD TONE (tone-1: moon-based Jupiter + Saturn gochar)
+  20 Oct 2026 – 31 Oct 2026  Mixed      Jupiter 1st from your Moon — traditionally neutral; Saturn 9th from your Moon — traditionally neutral
+  31 Oct 2026 – 25 Jan 2027  Supportive Jupiter 2nd from your Moon — traditionally supportive; Saturn 9th from your Moon — traditionally neutral
+  25 Jan 2027 – 3 Jun 2027  Mixed      Jupiter 1st from your Moon — traditionally neutral; Saturn 9th from your Moon — traditionally neutral
+  3 Jun 2027 – 26 Jun 2027  Mixed      Jupiter 1st from your Moon — traditionally neutral; Saturn 10th from your Moon — traditionally neutral
+  26 Jun 2027 – 20 Oct 2027  Supportive Jupiter 2nd from your Moon — traditionally supportive; Saturn 10th from your Moon — traditionally neutral
+  20 Oct 2027 – 26 Nov 2027  Supportive Jupiter 2nd from your Moon — traditionally supportive; Saturn 9th from your Moon — traditionally neutral
+  26 Nov 2027 – 23 Feb 2028  Mixed      Jupiter 3rd from your Moon — traditionally neutral; Saturn 9th from your Moon — traditionally neutral
+  23 Feb 2028 – 28 Feb 2028  Mixed      Jupiter 3rd from your Moon — traditionally neutral; Saturn 10th from your Moon — traditionally neutral
+  28 Feb 2028 – 24 Jul 2028  Supportive Jupiter 2nd from your Moon — traditionally supportive; Saturn 10th from your Moon — traditionally neutral
+  24 Jul 2028 – 19 Oct 2028  Mixed      Jupiter 3rd from your Moon — traditionally neutral; Saturn 10th from your Moon — traditionally neutral
+SATURN
+  20 Oct 2026 – 3 Jun 2027  Saturn transit (house 9)
+  3 Jun 2027 – 20 Oct 2027  Saturn transit (house 10)
+  20 Oct 2027 – 23 Feb 2028  Saturn transit (house 9)
+  23 Feb 2028 – 19 Oct 2028  Saturn transit (house 10)
+
+MAJOR EVENTS, NEXT 24 MONTHS
+  31 Oct 2026  Jupiter enters Simha — 2nd from your Moon — traditionally supportive
+  31 Oct 2026  Period tone becomes supportive — Jupiter 2nd from your Moon — traditionally supportive; Saturn 9th from your Moon — traditionally neutral
+  5 Dec 2026   Rahu enters Makara, Ketu enters Karka — Rahu 7th and Ketu 1st from your Moon
+  11 Dec 2026  Saturn turns direct — Resumes forward motion
+  13 Dec 2026  Jupiter turns retrograde — Appears to move backwards until it turns direct
+  25 Jan 2027  Jupiter enters Karka — 1st from your Moon
+  25 Jan 2027  Period tone becomes mixed — Jupiter 1st from your Moon — traditionally neutral; Saturn 9th from your Moon — traditionally neutral
+  24 Feb 2027  Mars–Jupiter period begins — Sub-period of Jupiter within Mars mahadasha
+  13 Apr 2027  Jupiter turns direct — Resumes forward motion
+  3 Jun 2027   Saturn enters Mesha — 10th from your Moon
+  26 Jun 2027  Jupiter enters Simha — 2nd from your Moon — traditionally supportive
+  26 Jun 2027  Period tone becomes supportive — Jupiter 2nd from your Moon — traditionally supportive; Saturn 10th from your Moon — traditionally neutral
+  9 Aug 2027   Saturn turns retrograde — Appears to move backwards until it turns direct
+  20 Oct 2027  Saturn enters Meena — 9th from your Moon
+  26 Nov 2027  Jupiter enters Kanya — 3rd from your Moon
+  26 Nov 2027  Period tone becomes mixed — Jupiter 3rd from your Moon — traditionally neutral; Saturn 9th from your Moon — traditionally neutral
+  24 Dec 2027  Saturn turns direct — Resumes forward motion
+  12 Jan 2028  Jupiter turns retrograde — Appears to move backwards until it turns direct
+  31 Jan 2028  Mars–Saturn period begins — Sub-period of Saturn within Mars mahadasha
+  23 Feb 2028  Saturn enters Mesha — 10th from your Moon
+  28 Feb 2028  Jupiter enters Simha — 2nd from your Moon — traditionally supportive
+  28 Feb 2028  Period tone becomes supportive — Jupiter 2nd from your Moon — traditionally supportive; Saturn 10th from your Moon — traditionally neutral
+  14 May 2028  Jupiter turns direct — Resumes forward motion
+  24 Jun 2028  Rahu enters Dhanu, Ketu enters Mithuna — Rahu 6th and Ketu 12th from your Moon
+  24 Jul 2028  Jupiter enters Kanya — 3rd from your Moon
+  24 Jul 2028  Period tone becomes mixed — Jupiter 3rd from your Moon — traditionally neutral; Saturn 10th from your Moon — traditionally neutral
+  23 Aug 2028  Saturn turns retrograde — Appears to move backwards until it turns direct
+
+PANCHANG 2026-10-20 (Mangalvar) at 12.9716, 77.5946
+  Sunrise 20 Oct 2026, 6:10 AM   Sunset 20 Oct 2026, 5:58 PM
+  Tithi     Shukla Navami until 20 Oct 2026, 12:50 PM
+  Nakshatra Shravana until 20 Oct 2026, 6:03 PM
+  Yoga      Shula until 21 Oct 2026, 12:49 AM
+  Rahu Kaal 20 Oct 2026, 3:01 PM – 20 Oct 2026, 4:29 PM

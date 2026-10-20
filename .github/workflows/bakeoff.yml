@@ -1,0 +1,22 @@
+name: Model bake-off
+# Run manually from the Actions tab after adding GEMINI_API_KEY and ANTHROPIC_API_KEY as repository secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: Comma-separated models
+        default: gemini-2.5-flash-lite,claude-haiku-5-5
+jobs:
+  bakeoff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node eval/run.mjs --models "${{ inputs.models }}"
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - run: cat eval/results/*/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: bakeoff-results, path: eval/results }
