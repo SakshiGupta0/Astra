@@ -58,7 +58,7 @@ private val ROWS = listOf("Dasha", "Tone", "Saturn", "Jupiter", "Rahu·Ketu", "R
 fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, modifier: Modifier = Modifier) {
     val c = Astra.colors
     val z = session.zone
-    val items = remember(tl, c) { buildItems(tl, c.gold, c.lavender, c.supportive, c.mixed, c.demanding, c.textSecondary) }
+    val items = remember(tl, c) { buildItems(tl, c.accent, c.lavender, c.supportive, c.mixed, c.demanding, c.textSecondary) }
     val months = remember(tl) {
         val out = ArrayList<Instant>()
         var m = ZonedDateTime.ofInstant(tl.from, z).withDayOfMonth(1).toLocalDate().atStartOfDay(z)
@@ -106,8 +106,8 @@ fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, 
                 items.forEach { it.draw(this, ::x, hH, rH, measurer, labelStyle) }
                 // today
                 val tx = x(session.at)
-                drawLine(c.gold, Offset(tx, hH - 6f), Offset(tx, size.height), 3f)
-                drawLabel(measurer, "Today", labelStyle.copy(color = c.gold), Offset(tx + 4f, hH - 16f), 60.dp.toPx())
+                drawLine(c.accent, Offset(tx, hH - 6f), Offset(tx, size.height), 3f)
+                drawLabel(measurer, "Today", labelStyle.copy(color = c.accent), Offset(tx + 4f, hH - 16f), 60.dp.toPx())
             }
         }
     }

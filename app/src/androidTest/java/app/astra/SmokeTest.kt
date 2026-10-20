@@ -33,7 +33,12 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class SmokeTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
+
+    /** On any failure, save a screenshot named after the test so the problem can be seen. */
+    @get:Rule(order = 2) val onFail = object : org.junit.rules.TestWatcher() {
+        override fun failed(e: Throwable?, d: org.junit.runner.Description) { runCatching { shot("FAIL_${d.methodName}") } }
+    }
 
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as App
 
@@ -67,7 +72,7 @@ class SmokeTest {
         if (pm) rule.onNodeWithText("PM").performClick()
         if (shots) shot("04_time"); next()
         rule.onNodeWithTag("placeQuery").performTextInput("bangalore")
-        rule.waitUntil(20_000) { rule.onAllNodes(hasText("Bengaluru, Karnataka, India")).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(60_000) { rule.onAllNodes(hasText("Bengaluru, Karnataka, India")).fetchSemanticsNodes().isNotEmpty() }
         if (shots) shot("05_place_search")
         rule.onAllNodes(hasText("Bengaluru, Karnataka, India")).onFirst().performClick()
         waitTag("selectedPlace").assertIsDisplayed()

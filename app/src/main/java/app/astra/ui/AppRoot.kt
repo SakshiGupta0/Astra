@@ -40,7 +40,7 @@ enum class Tab(val label: String, @DrawableRes val icon: Int) {
 @Composable
 fun AppRoot(app: App) {
     val profile = app.profiles.profile
-    AstraTheme(profile?.theme ?: ThemeChoice.SYSTEM) {
+    AstraTheme(profile?.theme ?: ThemeChoice.DARK) {
         var editing by remember { mutableStateOf(false) }
         when {
             profile == null -> OnboardingFlow(null, onDone = { app.profiles.save(it) })
@@ -70,9 +70,9 @@ private fun Main(app: App, session: Session, onEdit: () -> Unit) {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = tab == t, onClick = { tab = t },
-                        icon = { AIcon(t.icon, null, tint = if (tab == t) c.gold else c.textSecondary) },
+                        icon = { AIcon(t.icon, null, tint = if (tab == t) c.accent else c.textSecondary) },
                         label = { Text(t.label, style = Astra.type.meta) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = c.gold.copy(alpha = 0.16f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = c.accent.copy(alpha = 0.16f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
                         modifier = Modifier.testTag("tab_${t.name}")
                     )
                 }

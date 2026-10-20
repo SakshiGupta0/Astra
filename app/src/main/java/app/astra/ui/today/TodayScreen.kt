@@ -90,7 +90,7 @@ fun TodayScreen(session: Session) {
                 else -> AstraCard(Modifier.testTag("panchang")) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            AIcon(R.drawable.ic_sunrise, "Sunrise", tint = c.gold, size = 18.dp); Text(Fmt.time(sunrise, z), style = Astra.type.label, color = c.text)
+                            AIcon(R.drawable.ic_sunrise, "Sunrise", tint = c.accent, size = 18.dp); Text(Fmt.time(sunrise, z), style = Astra.type.label, color = c.text)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             AIcon(R.drawable.ic_sunset, "Sunset", tint = c.lavender, size = 18.dp); Text(Fmt.time(sunset, z), style = Astra.type.label, color = c.text)

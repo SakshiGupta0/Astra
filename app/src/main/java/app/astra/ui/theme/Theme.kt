@@ -28,7 +28,8 @@ data class AstraColors(
     val border: Color,
     val purple: Color,
     val lavender: Color,
-    val gold: Color,            // primary actions, selected states, key markers
+    val gold: Color,            // primary action fills
+    val accent: Color,          // emphasis text, strokes, selected states (gold on dark, purple on light)
     val onGold: Color,
     val text: Color,
     val textSecondary: Color,
@@ -42,7 +43,7 @@ val DarkAstra = AstraColors(
     dark = true,
     background = Color(0xFF080F24), backgroundAlt = Color(0xFF181648), surface = Color(0xFF242344),
     border = Color(0xFF3A3866), purple = Color(0xFF602D89), lavender = Color(0xFFA78BFA),
-    gold = Color(0xFFF7D794), onGold = Color(0xFF14102E),
+    gold = Color(0xFFF7D794), accent = Color(0xFFF7D794), onGold = Color(0xFF14102E),
     text = Color(0xFFF5F3FF), textSecondary = Color(0xFFAAB0C5),
     supportive = Color(0xFFF7D794), mixed = Color(0xFFA78BFA), demanding = Color(0xFF6E73A8),
     error = Color(0xFFFFB4A8)
@@ -52,7 +53,7 @@ val LightAstra = AstraColors(
     dark = false,
     background = Color(0xFFF7F5FD), backgroundAlt = Color(0xFFEDE9FA), surface = Color(0xFFFFFFFF),
     border = Color(0xFFD9D4EE), purple = Color(0xFF602D89), lavender = Color(0xFF5B3FC4),
-    gold = Color(0xFFF7D794), onGold = Color(0xFF14102E),
+    gold = Color(0xFFF7D794), accent = Color(0xFF602D89), onGold = Color(0xFF14102E),
     text = Color(0xFF15133A), textSecondary = Color(0xFF575B75),
     supportive = Color(0xFFE2B85A), mixed = Color(0xFF8C73E6), demanding = Color(0xFF5E6390),
     error = Color(0xFFB3261E)

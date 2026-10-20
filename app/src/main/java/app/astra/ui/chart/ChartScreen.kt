@@ -129,9 +129,9 @@ private fun DashaList(session: Session) {
         d.mahadashas.take(9).forEach { m ->
             val current = m.contains(session.at)
             Row(Modifier.fillMaxWidth().clickable { openMaha = if (openMaha == m.lord) null else m.lord }.padding(vertical = 8.dp)) {
-                Text(m.lord.english, style = if (current) Astra.type.bodyStrong else Astra.type.body, color = if (current) c.gold else c.text, modifier = Modifier.weight(0.35f))
+                Text(m.lord.english, style = if (current) Astra.type.bodyStrong else Astra.type.body, color = if (current) c.accent else c.text, modifier = Modifier.weight(0.35f))
                 Text("${Fmt.date(m.start, z)} – ${Fmt.date(m.end, z)}", style = Astra.type.label, color = c.textSecondary, modifier = Modifier.weight(0.55f))
-                if (current) Pill("Now", c.gold)
+                if (current) Pill("Now", c.accent)
             }
             if (openMaha == m.lord) d.subPeriods(m).forEach { a -> SubRow(a, session, depth = 1) }
         }
@@ -143,7 +143,7 @@ private fun SubRow(p: DashaPeriod, session: Session, depth: Int) {
     val c = Astra.colors
     val current = p.contains(session.at)
     Row(Modifier.fillMaxWidth().padding(start = (16 * depth).dp, top = 3.dp, bottom = 3.dp)) {
-        Text(p.path.drop(1).joinToString("–") { it.english }, style = Astra.type.label, color = if (current) c.gold else c.text, modifier = Modifier.weight(0.4f))
+        Text(p.path.drop(1).joinToString("–") { it.english }, style = Astra.type.label, color = if (current) c.accent else c.text, modifier = Modifier.weight(0.4f))
         Text("${Fmt.date(p.start, session.zone)} – ${Fmt.date(p.end, session.zone)}", style = Astra.type.meta, color = c.textSecondary, modifier = Modifier.weight(0.6f))
     }
     if (current && depth == 1) session.chart.dasha.subPeriods(p).forEach { SubRow(it, session, 2) }
@@ -164,11 +164,11 @@ fun NorthIndianChart(chart: ChartSnapshot, modifier: Modifier = Modifier) {
     Canvas(modifier.semantics { contentDescription = desc }) {
         val w = size.width; val h = size.height
         val line = Stroke(width = 1.6f)
-        drawRect(c.gold.copy(alpha = 0.8f), style = line)
-        drawLine(c.gold.copy(alpha = 0.8f), Offset(0f, 0f), Offset(w, h), 1.6f)
-        drawLine(c.gold.copy(alpha = 0.8f), Offset(w, 0f), Offset(0f, h), 1.6f)
+        drawRect(c.accent.copy(alpha = 0.8f), style = line)
+        drawLine(c.accent.copy(alpha = 0.8f), Offset(0f, 0f), Offset(w, h), 1.6f)
+        drawLine(c.accent.copy(alpha = 0.8f), Offset(w, 0f), Offset(0f, h), 1.6f)
         val diamond = Path().apply { moveTo(w / 2, 0f); lineTo(w, h / 2); lineTo(w / 2, h); lineTo(0f, h / 2); close() }
-        drawPath(diamond, c.gold.copy(alpha = 0.8f), style = line)
+        drawPath(diamond, c.accent.copy(alpha = 0.8f), style = line)
         // centres for planets and positions for sign numbers, as fractions of the square
         val centres = mapOf(1 to (0.5f to 0.27f), 2 to (0.25f to 0.11f), 3 to (0.11f to 0.25f), 4 to (0.27f to 0.5f), 5 to (0.11f to 0.75f), 6 to (0.25f to 0.89f),
             7 to (0.5f to 0.73f), 8 to (0.75f to 0.89f), 9 to (0.89f to 0.75f), 10 to (0.73f to 0.5f), 11 to (0.89f to 0.25f), 12 to (0.75f to 0.11f))
@@ -176,7 +176,7 @@ fun NorthIndianChart(chart: ChartSnapshot, modifier: Modifier = Modifier) {
             7 to (0.5f to 0.56f), 8 to (0.75f to 0.79f), 9 to (0.79f to 0.75f), 10 to (0.56f to 0.5f), 11 to (0.79f to 0.25f), 12 to (0.75f to 0.21f))
         val signStyle = TextStyle(fontFamily = Inter, fontSize = 11.sp, color = c.textSecondary)
         val planetStyle = TextStyle(fontFamily = Inter, fontSize = 13.sp, color = c.text)
-        val ascStyle = planetStyle.copy(color = c.gold)
+        val ascStyle = planetStyle.copy(color = c.accent)
         for (house in 1..12) {
             val sign = (ascSign + house - 1) % 12 + 1
             val (sx, sy) = signPos.getValue(house)

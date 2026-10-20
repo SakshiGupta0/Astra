@@ -24,7 +24,7 @@ data class Profile(
     val utcOffsetOverrideMinutes: Int?,
     val currentPlace: SavedPlace,
     val language: ReplyLanguage = ReplyLanguage.EN,
-    val theme: ThemeChoice = ThemeChoice.SYSTEM
+    val theme: ThemeChoice = ThemeChoice.DARK
 ) {
     fun birthInput() = BirthInput(
         date = birthDate, time = birthTime, timeStatus = timeStatus,
@@ -65,7 +65,7 @@ object ProfileCodec {
             utcOffsetOverrideMinutes = s("utcOffsetOverrideMinutes")?.toInt(),
             currentPlace = place("now"),
             language = s("language")?.let { runCatching { ReplyLanguage.valueOf(it) }.getOrNull() } ?: ReplyLanguage.EN,
-            theme = s("theme")?.let { runCatching { ThemeChoice.valueOf(it) }.getOrNull() } ?: ThemeChoice.SYSTEM
+            theme = s("theme")?.let { runCatching { ThemeChoice.valueOf(it) }.getOrNull() } ?: ThemeChoice.DARK
         ).also { it.birthInput() } // validates
     } catch (e: Exception) { null }
 }

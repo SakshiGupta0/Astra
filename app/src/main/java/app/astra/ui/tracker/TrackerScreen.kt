@@ -81,7 +81,7 @@ private fun NowTab(session: Session, positions: List<NowPosition>?, timeline: Ti
             Text("Where you are", style = Astra.type.heading, color = c.text)
             val dn = session.chart.dasha.at(session.at)
             if (dn != null) {
-                Text("${dn.maha.lord.english} mahadasha", style = Astra.type.bodyStrong, color = c.gold, modifier = Modifier.testTag("mahadasha"))
+                Text("${dn.maha.lord.english} mahadasha", style = Astra.type.bodyStrong, color = c.accent, modifier = Modifier.testTag("mahadasha"))
                 Text("${dn.antar.lord.english} sub-period until ${Fmt.date(dn.antar.end, z)} (${Fmt.until(session.at, dn.antar.end)})", style = Astra.type.body, color = c.text)
                 Text("${dn.pratyantar.lord.english} pratyantar until ${Fmt.date(dn.pratyantar.end, z)} · mahadasha ends ${Fmt.date(dn.maha.end, z)}", style = Astra.type.meta, color = c.textSecondary)
                 if (session.chart.dashaUncertaintyDays > 0 || session.chart.dashaLordUncertain)
@@ -107,7 +107,7 @@ private fun NowTab(session: Session, positions: List<NowPosition>?, timeline: Ti
             }
             timeline?.events?.firstOrNull { it.major && it.instant.isAfter(session.at) }?.let { e ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AIcon(R.drawable.ic_calendar_days, null, tint = c.gold, size = 18.dp)
+                    AIcon(R.drawable.ic_calendar_days, null, tint = c.accent, size = 18.dp)
                     Text("Next: ${e.title}, ${Fmt.date(e.instant, z)} (${Fmt.until(session.at, e.instant)})", style = Astra.type.label, color = c.text)
                 }
             }
@@ -127,8 +127,8 @@ private fun PlanetRow(p: NowPosition, session: Session) {
     var open by remember { mutableStateOf(false) }
     AstraCard(Modifier.animateContentSize().testTag("planet_${p.graha.name}"), onClick = { open = !open }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(40.dp).clip(CircleShape).border(1.dp, c.gold.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
-                Text(Fmt.abbrev(p.graha), style = Astra.type.bodyStrong, color = c.gold)
+            Box(Modifier.size(40.dp).clip(CircleShape).border(1.dp, c.accent.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
+                Text(Fmt.abbrev(p.graha), style = Astra.type.bodyStrong, color = c.accent)
             }
             Column(Modifier.weight(1f)) {
                 Text("${p.graha.english} · ${p.graha.sanskrit}", style = Astra.type.bodyStrong, color = c.text)
@@ -136,7 +136,7 @@ private fun PlanetRow(p: NowPosition, session: Session) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("${ordinal(p.houseFromMoon)} from Moon", style = Astra.type.label, color = c.text)
-                if (p.favourableFromMoon) Text("★ supportive", style = Astra.type.meta, color = c.gold)
+                if (p.favourableFromMoon) Text("★ supportive", style = Astra.type.meta, color = c.accent)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -185,7 +185,7 @@ private fun TimelineTab(session: Session, timeline: Timeline?) {
             upcoming.forEach { e ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.size(width = 64.dp, height = 40.dp)) {
-                        Text(Fmt.dateShort(e.instant, z), style = Astra.type.label, color = if (e.major) c.gold else c.textSecondary)
+                        Text(Fmt.dateShort(e.instant, z), style = Astra.type.label, color = if (e.major) c.accent else c.textSecondary)
                         Text(e.instant.atZone(z).year.toString(), style = Astra.type.meta, color = c.textSecondary)
                     }
                     Column(Modifier.weight(1f)) {

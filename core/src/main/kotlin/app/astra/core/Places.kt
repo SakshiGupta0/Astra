@@ -56,7 +56,7 @@ class PlaceIndex(private val places: List<Place>, private val homeCountry: Strin
                 val s = when {
                     k == q -> 4
                     k.startsWith(q) -> 3
-                    k.split(' ').any { it.startsWith(q) } -> 2
+                    k.contains(" $q") -> 2
                     q.length >= 4 && k.contains(q) -> 1
                     else -> 0
                 }
@@ -79,11 +79,21 @@ class PlaceIndex(private val places: List<Place>, private val homeCountry: Strin
     }
 
     companion object {
-        fun norm(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD)
-            .replace(Regex("\\p{M}+"), "")
-            .lowercase(Locale.ROOT)
-            .replace(Regex("[^a-z0-9 ]"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
+        /** Lowercase ASCII letters and digits, single spaces, accents removed. Fast: runs on ~100k names at startup. */
+        fun norm(s: String): String {
+            val src = if (s.all { it.code < 128 }) s else Normalizer.normalize(s, Normalizer.Form.NFD)
+            val sb = StringBuilder(src.length)
+            var pendingSpace = false
+            for (ch in src) {
+                if (Character.getType(ch) == Character.NON_SPACING_MARK.toInt()) continue
+                val c = ch.lowercaseChar()
+                if (c in 'a'..'z' || c in '0'..'9') {
+                    if (pendingSpace && sb.isNotEmpty()) sb.append(' ')
+                    pendingSpace = false
+                    sb.append(c)
+                } else pendingSpace = true
+            }
+            return sb.toString()
+        }
     }
 }

@@ -56,8 +56,8 @@ fun AField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Next),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = c.gold, unfocusedBorderColor = c.border, focusedLabelColor = c.gold, unfocusedLabelColor = c.textSecondary,
-                cursorColor = c.gold, focusedContainerColor = c.surface, unfocusedContainerColor = c.surface, errorBorderColor = c.error
+                focusedBorderColor = c.accent, unfocusedBorderColor = c.border, focusedLabelColor = c.accent, unfocusedLabelColor = c.textSecondary,
+                cursorColor = c.accent, focusedContainerColor = c.surface, unfocusedContainerColor = c.surface, errorBorderColor = c.error
             ),
             modifier = Modifier.fillMaxWidth().then(if (tag != null) Modifier.testTag(tag) else Modifier)
         )
@@ -74,15 +74,15 @@ fun <T> ChoiceChips(options: List<Pair<T, String>>, selected: T?, onSelect: (T) 
             val sel = value == selected
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp))
-                    .background(if (sel) c.gold.copy(alpha = 0.14f) else c.surface)
-                    .border(if (sel) 1.5.dp else 1.dp, if (sel) c.gold else c.border, RoundedCornerShape(14.dp))
+                    .background(if (sel) c.accent.copy(alpha = 0.14f) else c.surface)
+                    .border(if (sel) 1.5.dp else 1.dp, if (sel) c.accent else c.border, RoundedCornerShape(14.dp))
                     .clickable(role = Role.RadioButton) { onSelect(value) }
                     .semantics { this.selected = sel }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(label, style = Astra.type.body, color = c.text, modifier = Modifier.weight(1f))
-                if (sel) AIcon(R.drawable.ic_check, "Selected", tint = c.gold, size = 20.dp)
+                if (sel) AIcon(R.drawable.ic_check, "Selected", tint = c.accent, size = 20.dp)
             }
         }
     }
@@ -106,7 +106,7 @@ fun PlaceSearch(selected: SavedPlace?, onSelect: (SavedPlace) -> Unit, modifier:
         if (selected != null) {
             AstraCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AIcon(R.drawable.ic_map_pin, null, tint = c.gold, size = 20.dp)
+                    AIcon(R.drawable.ic_map_pin, null, tint = c.accent, size = 20.dp)
                     Column(Modifier.weight(1f)) {
                         Text(selected.label, style = Astra.type.bodyStrong, color = c.text, modifier = Modifier.testTag("selectedPlace"))
                         Text("Time zone: ${selected.zoneId}", style = Astra.type.meta, color = c.textSecondary)

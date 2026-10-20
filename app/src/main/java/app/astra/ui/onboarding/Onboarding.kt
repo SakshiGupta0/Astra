@@ -73,7 +73,7 @@ private class Draft(p: Profile?) {
     var sameAsBirth by mutableStateOf(p != null && p.currentPlace == p.birthPlace)
     var language by mutableStateOf(p?.language ?: ReplyLanguage.EN)
     val offset = p?.utcOffsetOverrideMinutes
-    val theme = p?.theme ?: ThemeChoice.SYSTEM
+    val theme = p?.theme ?: ThemeChoice.DARK
 
     fun date(): LocalDate? = runCatching { LocalDate.of(year.trim().toInt(), month.trim().toInt(), day.trim().toInt()) }.getOrNull()
     fun dateError(): String? {
@@ -123,7 +123,7 @@ fun OnboardingFlow(initial: Profile?, onDone: (Profile) -> Unit, onCancel: (() -
                 LinearProgressIndicator(
                     progress = { (visible.indexOf(step) + 1f) / visible.size },
                     modifier = Modifier.weight(1f).padding(horizontal = 12.dp).height(4.dp).clip(RoundedCornerShape(2.dp)),
-                    color = c.gold, trackColor = c.border
+                    color = c.accent, trackColor = c.border
                 )
                 Text("${visible.indexOf(step) + 1} of ${visible.size}", style = Astra.type.meta, color = c.textSecondary, modifier = Modifier.padding(end = 12.dp))
             }
@@ -177,7 +177,7 @@ private fun Welcome(onStart: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
         ) {
             Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(132.dp))
-            Text("ASTRA", style = Astra.type.display, color = c.gold)
+            Text("ASTRA", style = Astra.type.display, color = c.accent)
             Spacer(Modifier.height(8.dp))
             Text("Tell your story once.", style = Astra.type.heading, color = c.text, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
