@@ -1,5 +1,21 @@
 # Changelog
 
+## app 0.2.0 — M2 (21 Oct 2026)
+First installable build. Everything is calculated on the phone; nothing leaves it yet.
+### Added
+- **Onboarding** (about 2 minutes): name, birth date, birth time (exact / roughly with ±30, 60 or 120 min / don't know), offline birthplace search, where you live now, reply language.
+- **Graha Tracker – Now:** where you are (mahadasha, sub-period and pratyantar with end dates, period tone and why, Sade Sati phase, next event) and all nine grahas with sign, degree, nakshatra, house from your Moon, retrograde and next sign change. Tap a planet for its meaning.
+- **Graha Tracker – Timeline:** 12 months back to 24 ahead in bands (dasha, tone, Saturn, Jupiter, Rahu–Ketu, retrogrades), tap any band for details, plus a list of upcoming events.
+- **Chart:** North Indian chart (Moon chart when birth time is unknown), placements table, dasha periods down to pratyantar, how it was calculated, birth-time warnings.
+- **Today:** a day line for your Moon transit, current period, next event, and panchang for where you live (sunrise, sunset, tithi, nakshatra, yoga with end times, Rahu Kaal).
+- **Profile:** your details, edit, theme (dark default, light, match phone), reply language, clock-time override for old birth records, credits, delete from phone.
+- Offline place list: 37,511 places from GeoNames, including 7,144 Indian towns down to 1,000 people.
+- CI: core golden fixtures, signed APK with a fixed key (updates install over each other), emulator smoke tests with screenshots, GitHub release.
+### Fixed during M2
+- Crash on Android 10: a Java 9 call in the tracker. The core is now compiled against the Java 8 API so this can't recur.
+### Not in this build
+- Sign-in and cloud backup (needs the Firebase project), My Story, Ask ASTRA, notifications (M3); tarot, Cross-Reading, check-ins (M4).
+
 ## core 0.1.0 — M0 + M1 (20 Oct 2026)
 ### Added
 - Sidereal ephemeris over Astronomy Engine: apparent positions, nutation, Lahiri mean ayanamsha calibrated to Swiss Ephemeris SIDM_LAHIRI, mean Rahu/Ketu, Lagna (with the polar-latitude convention), retrograde flags.

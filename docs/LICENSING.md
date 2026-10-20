@@ -9,7 +9,9 @@
 | JUnit 4 | Tests | EPL-1.0 | OK (test only). |
 | Tarot card art | App | Own original designs (owner decision) | Create per the ASTRA Visual Identity and App Design Guide. |
 | Card meanings, interpretation text | App and prompts | Written in-house | Don't copy from books or websites. |
-| Fonts | App | Per design guide | Check each font's licence when the design guide's fonts are added (M2). |
+| Playfair Display, Inter | App fonts | SIL Open Font Licence 1.1 | OK. Licence texts in `licenses/`. |
+| Lucide icons | App icons (converted to vector drawables) | ISC | OK. Licence in `licenses/`. |
+| GeoNames place data | Offline place search | CC BY 4.0 | OK with attribution (shown in Profile → About). |
 | AI provider (Gemini or Claude) | Interpretation | Provider API terms | Before beta: confirm paid-tier data use and retention terms. Use only synthetic data on any free tier. |
 | Personal data | Birth details, My Story | India DPDP Act and Rules | Consent copy, notice, deletion and export before wider beta (M4). |
 
