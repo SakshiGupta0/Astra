@@ -24,6 +24,8 @@ const MODELS = {
   "claude-haiku-5-5": { provider: "anthropic", inPerM: 0.10, outPerM: 0.50 },
   mock: { provider: "mock", inPerM: 0, outPerM: 0 },
 };
+// Gemini 3 models think by default, which adds latency and cost. "low" keeps answers fast; pass --thinking none to omit the setting.
+const THINKING = (pick("--thinking") ?? "low") === "none" ? null : (pick("--thinking") ?? "low");
 const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]);
 
 async function callGemini(model, sys, user) {
@@ -31,16 +33,18 @@ async function callGemini(model, sys, user) {
   if (!key) throw new Error("GEMINI_API_KEY not set");
   // Free-tier keys have low per-minute limits: retry 429 / 503 with the server's suggested delay.
   let r, j;
+  let useThinking = !!THINKING;
   for (let attempt = 0; attempt < 4; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 90_000); // never hang on one request
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST", signal: ctrl.signal, headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 700 } }),
+        generationConfig: { temperature: 0.4, maxOutputTokens: 1200, ...(useThinking ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) } }),
     });
     j = await r.json().catch(() => ({}));
     clearTimeout(timer);
+    if (r.status === 400 && useThinking && /thinking/i.test(JSON.stringify(j))) { useThinking = false; continue; } // model doesn't accept the setting
     if (r.status !== 429 && r.status !== 503) break;
     // A daily quota won't recover within this run: stop retrying and report it.
     if (/per ?day|PerDay/i.test(JSON.stringify(j))) throw new Error(`Gemini daily free-tier quota reached for ${model}`);
@@ -50,7 +54,8 @@ async function callGemini(model, sys, user) {
   }
   if (!r.ok) throw new Error(`Gemini ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
   const text = (j.candidates?.[0]?.content?.parts ?? []).map(p => p.text ?? "").join("");
-  return { text, inTok: j.usageMetadata?.promptTokenCount ?? 0, outTok: j.usageMetadata?.candidatesTokenCount ?? 0 };
+  // Thinking tokens are billed as output, so include them in cost.
+  return { text, inTok: j.usageMetadata?.promptTokenCount ?? 0, outTok: (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0) };
 }
 
 async function callAnthropic(model, sys, user) {
