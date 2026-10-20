@@ -6,5 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "ASTRA"
-include(":core")
-// :app (Jetpack Compose) arrives in M2.
+include(":core", ":app")

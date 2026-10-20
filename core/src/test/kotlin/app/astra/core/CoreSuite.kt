@@ -246,7 +246,7 @@ class CoreSuite(private val fixtures: File) {
         val tl = Tracker(chart).timeline(Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2029-10-01T00:00:00Z"))
         val texts = tl.events.flatMap { listOf(it.title, it.detail) } + tl.tone.flatMap { it.factors } +
             SaturnPhase.entries.map { it.label } + Tone.entries.map { it.label } +
-            (1..12).flatMap { j -> (1..12).flatMap { s -> Gochar.factors(j, s) } }
+            (1..12).flatMap { j -> (1..12).flatMap { s -> Gochar.factors(j, s) } } + Copy.allText()
         val bad = texts.filter { banned.containsMatchIn(it) }
         check("copy: no banned words in tracker text (${texts.size} strings)", bad.isEmpty()) { bad.take(3).toString() }
     }
