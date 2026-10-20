@@ -28,7 +28,8 @@ jobs:
           ./gradlew --no-daemon --console=plain :core:test testDebugUnitTest > unit.log 2>&1 || (grep -E "^e: |error:|What went wrong|FAILED|FAIL |Unresolved|Caused by" unit.log | head -60 | sed 's/^/::error title=build::/' ; exit 1)
           grep -E "PASSED [0-9]+|note:" unit.log | sed 's/^/::notice title=core::/' || true
       - name: Build release APK
-        run: ./gradlew --no-daemon --console=plain assembleRelease > apk.log 2>&1 || (grep -E "^e: |error:|What went wrong|Unresolved|Caused by" apk.log | head -60 | sed 's/^/::error title=apk::/' ; exit 1)
+        run: |
+          ./gradlew --no-daemon --console=plain assembleRelease > apk.log 2>&1 || (grep -E "^e: |error:|What went wrong|Unresolved|Caused by" apk.log | head -60 | sed 's/^/::error title=apk::/' ; exit 1)
       - name: Name the APK
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
