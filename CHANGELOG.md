@@ -7,10 +7,10 @@
 - **Today**: a short daily line written by the AI when available, cached for the day; the calculated line stays as a fallback.
 - **Notifications** (offered once on the tracker, then in Me): a morning note (tithi, your Moon, Rahu Kaal), week ahead on Sundays instead, and heads-ups a week before and on the day of chart changes, at most two a week. Alerts about demanding periods are a separate opt-in, off by default. Quiet 10 pm–7 am. Worked out on the phone.
 - **Backup with Google** (Me → Backup): links your account and keeps a copy of your story and saved readings; signing in on a new phone brings them back.
-- **AI server** (Firebase Cloud Function, Mumbai region): checks sign-in, enforces 15 questions a day and a ₹15-a-day spending limit across all users, handles crisis messages itself with the Tele-MANAS helpline and no reading, uses only story items you allowed, checks every answer for invented chart facts, predictions and fear words (one retry, then a safe reply), and logs no question or answer text.
+- **AI server** (Cloudflare Worker on the free plan, so no card is needed; Firebase stays on the free Spark plan for sign-in and the database): checks sign-in, enforces 15 questions a day and a ₹15-a-day spending limit across all users, handles crisis messages itself with the Tele-MANAS helpline and no reading, uses only story items you allowed, checks every answer for invented chart facts, predictions and fear words (one retry, then a safe reply), and logs no question or answer text.
 - Database rules: each person can reach only their own data; usage counters are server-only. Tested against the Firestore emulator in CI.
 ### Needs your Firebase project to switch on
-- Ask ASTRA, the AI daily line and backup show "being set up" until `google-services.json` is added and the server is deployed (docs/FIREBASE-SETUP.md).
+- Ask ASTRA, the AI daily line and backup show "being set up" until `google-services.json` is added and the Cloudflare secrets are set (docs/FIREBASE-SETUP.md).
 
 ## app 0.2.0 — M2 (21 Oct 2026)
 First installable build. Everything is calculated on the phone; nothing leaves it yet.

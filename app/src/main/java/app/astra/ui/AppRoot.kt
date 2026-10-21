@@ -65,7 +65,7 @@ fun AppRoot(app: App, activity: MainActivity? = null) {
                 val session = remember(profile, day) { Session(profile) }
                 // Keep the server's copy of the chart facts current (once per day / profile change).
                 LaunchedEffect(session, app.backend) {
-                    if (app.backend.available) runCatching {
+                    if (app.backend.available || app.cloud.firebaseReady) runCatching {
                         app.backend.syncFacts(withContext(Dispatchers.Default) { session.factsJson() }, session.today.toString())
                         if (app.story.story.enabled) app.backend.syncStory(app.story.story)
                     }

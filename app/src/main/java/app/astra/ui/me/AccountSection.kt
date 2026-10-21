@@ -37,7 +37,7 @@ fun AccountSection(app: App) {
     var busy by remember { mutableStateOf(false) }
     SectionTitle("Backup")
     AstraCard {
-        if (!app.backend.available) {
+        if (!app.cloud.firebaseReady) {
             Text("Sign-in and backup are being set up. For now everything stays on this phone.", style = Astra.type.label, color = c.textSecondary)
             return@AstraCard
         }

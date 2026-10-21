@@ -9,6 +9,8 @@ plugins {
 // Without it the app still builds and runs; sign-in, backup and Ask ASTRA show as "being set up".
 val firebaseConfigured = file("google-services.json").exists()
 if (firebaseConfigured) apply(plugin = "com.google.gms.google-services")
+// Address of the AI server (Cloudflare Worker), written by the deploy workflow.
+val aiUrl = rootProject.file("ai-endpoint.txt").takeIf { it.exists() }?.readText()?.trim() ?: ""
 
 android {
     namespace = "app.astra"
@@ -22,6 +24,7 @@ android {
         versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "FIREBASE", firebaseConfigured.toString())
+        buildConfigField("String", "AI_URL", "\"$aiUrl\"")
     }
 
     // One fixed key for every build, so a new APK installs over the old one and keeps your data.
@@ -74,7 +77,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-functions")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

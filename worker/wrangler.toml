@@ -1,0 +1,17 @@
+# ASTRA AI server (Cloudflare Workers, free plan). The D1 database id is filled in by the deploy workflow.
+name = "astra-ai"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+FIREBASE_PROJECT_ID = "astra-d00af"
+ASTRA_MODEL = "gemini-3.1-flash-lite"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "astra-usage"
+database_id = "__D1_ID__"
+
+[observability]
+enabled = true

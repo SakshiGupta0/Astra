@@ -1,6 +1,6 @@
-name: Firebase (AI server + database rules)
-# Tests on every push. Deploys to Firebase from main once the project exists (.firebaserc) and the
-# FIREBASE_SERVICE_ACCOUNT secret is set (see docs/FIREBASE-SETUP.md).
+name: Firebase (database rules)
+# Tests the security rules on every push. Optionally deploys them if FIREBASE_SERVICE_ACCOUNT is set;
+# on the free Spark plan the rules are pasted in the console instead (docs/FIREBASE-SETUP.md).
 on:
   push:
     branches: [main]
@@ -56,17 +56,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      - name: Install function dependencies
+      - name: Deploy database rules
         if: steps.ready.outputs.ok == 'true'
-        run: cd functions && npm install --omit=dev --no-audit --no-fund --silent
-      - name: Store the Gemini key as a Firebase secret
-        if: steps.ready.outputs.ok == 'true'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          umask 077; printf '%s' "$GEMINI_API_KEY" > /tmp/gk
-          npx --yes firebase-tools@14 functions:secrets:set GEMINI_API_KEY --data-file /tmp/gk --force --non-interactive
-          rm -f /tmp/gk
-      - name: Deploy functions and rules
-        if: steps.ready.outputs.ok == 'true'
-        run: npx --yes firebase-tools@14 deploy --only functions,firestore:rules --force --non-interactive
+        run: npx --yes firebase-tools@14 deploy --only firestore:rules --force --non-interactive

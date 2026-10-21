@@ -1,37 +1,22 @@
-# Firebase setup for ASTRA (about 15 minutes, one time)
+# Setting up sign-in and the AI server (free, no card)
 
-## 1. Create the project
-1. Go to **console.firebase.google.com** → **Create a project** → name it **ASTRA**. Google Analytics: on, default account.
-2. Note the **Project ID** shown under the name (for example `astra-1a2b3`). Send it to Claude.
+ASTRA uses **Firebase on the free Spark plan** for sign-in, the user's private database space and backup,
+and a **Cloudflare Worker on the free plan** for the AI server that holds the Gemini key.
 
-## 2. Turn on the Blaze plan and a budget
-1. Bottom-left, click **Spark** → **Upgrade** → **Blaze**, then link or create a billing account with your card.
-2. When asked for a budget, set **₹500**. (Or later: Google Cloud console → Billing → Budgets & alerts → create a ₹500 budget with alerts at 50% and 90%.)
-   Expected bill at beta volume: ₹0. The budget only emails you; it does not stop services.
+## Firebase (project `astra-d00af`)
+1. **Authentication → Get started** → enable **Anonymous** and **Google** (support email: yours).
+2. **Firestore Database → Create database** → location **asia-south1 (Mumbai)** → **production mode**.
+3. **Firestore Database → Rules** → replace everything with the contents of `firestore.rules` in this repo → **Publish**.
+   (Do this again whenever `firestore.rules` changes. Optional: set the `FIREBASE_SERVICE_ACCOUNT` secret and GitHub deploys rules for you.)
+4. **Project settings → Your apps → Android**: package `app.astra`, SHA-1 `F4:1A:F3:2C:51:96:45:F8:60:96:27:AC:59:24:18:D0:E3:FC:5A:07`
+   → download **google-services.json** → it goes in `app/google-services.json` (not a password).
 
-## 3. Sign-in
-**Build → Authentication → Get started**, then enable **Anonymous** and **Google** (pick your email as the support email).
+## Cloudflare
+1. Sign up at **dash.cloudflare.com**. Open **Workers & Pages** once and pick a workers.dev subdomain if asked.
+2. Copy the **Account ID**.
+3. **My Profile → API Tokens → Create Token → "Edit Cloudflare Workers"** template, add **Account → D1 → Edit**, all zones → create, copy.
+4. GitHub → **Settings → Secrets and variables → Actions**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. (`GEMINI_API_KEY` is already there.)
 
-## 4. Database
-**Build → Firestore Database → Create database** → location **asia-south1 (Mumbai)** → **Start in production mode**.
-(ASTRA's security rules are deployed from the repo, so production mode is right.)
-
-## 5. Register the Android app
-**Project settings (gear) → General → Your apps → Android icon**:
-- Package name: `app.astra`
-- App nickname: `ASTRA`
-- SHA-1: `F4:1A:F3:2C:51:96:45:F8:60:96:27:AC:59:24:18:D0:E3:FC:5A:07`
-
-Click **Register app**, download **google-services.json**, and attach it in the chat with Claude.
-It identifies the app to Firebase and is not a password, so it's fine in the private repo.
-
-## 6. Let GitHub deploy the AI server
-1. Open **console.cloud.google.com** with the ASTRA project selected → **IAM & Admin → Service accounts → Create service account**.
-   Name: `github-deploy`. Grant these roles: **Editor**, **Secret Manager Admin**, **Service Account User**. Done.
-2. Open the new account → **Keys → Add key → Create new key → JSON**. A file downloads.
-3. In the GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**
-   Name `FIREBASE_SERVICE_ACCOUNT`, value: paste the whole contents of that JSON file.
-   **Do not send this file to Claude or anyone.** It is a password for your Google Cloud project.
-4. `GEMINI_API_KEY` is already a repository secret; the deploy copies it into Firebase's secret store.
-
-Then tell Claude "Firebase done". Claude deploys the database rules and the AI server from GitHub Actions and turns on sign-in and Ask ASTRA in the app.
+Then run **Actions → AI server (Cloudflare) → Run workflow** (or push). It creates the usage database, deploys
+`worker/`, stores the Gemini key on Cloudflare, checks `/health`, and writes the server address to `ai-endpoint.txt`.
+The next app build picks it up and Ask ASTRA switches on.

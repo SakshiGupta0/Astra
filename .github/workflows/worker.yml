@@ -1,0 +1,84 @@
+name: AI server (Cloudflare)
+# Tests on every push. Deploys to Cloudflare Workers from main once CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are set.
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", "functions/lib/**", ".github/workflows/worker.yml"]
+  pull_request:
+    paths: ["worker/**", "functions/lib/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Gateway + worker tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: '22' }
+      - run: node --test functions/test/*.test.js worker/test/*.test.js
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER: npx --yes wrangler@4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check setup
+        id: ready
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice title=deploy skipped::Cloudflare isn't set up yet (needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets)."
+            echo "ok=false" >> $GITHUB_OUTPUT
+          else echo "ok=true" >> $GITHUB_OUTPUT; fi
+      - if: steps.ready.outputs.ok == 'true'
+        uses: actions/setup-node@v5
+        with: { node-version: '22' }
+      - name: Find or create the usage database
+        if: steps.ready.outputs.ok == 'true'
+        working-directory: worker
+        run: |
+          ID=$($WRANGLER d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));const d=l.find(x=>x.name==="astra-usage");process.stdout.write(d?d.uuid:"")')
+          if [ -z "$ID" ]; then
+            $WRANGLER d1 create astra-usage --location apac
+            ID=$($WRANGLER d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(l.find(x=>x.name==="astra-usage").uuid)')
+          fi
+          sed -i "s/__D1_ID__/$ID/" wrangler.toml
+          $WRANGLER d1 execute astra-usage --remote --file schema.sql --yes
+      - name: Deploy
+        if: steps.ready.outputs.ok == 'true'
+        working-directory: worker
+        run: |
+          $WRANGLER deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://astra-ai\.[a-z0-9-]+\.workers\.dev' deploy.log | head -1)
+          echo "URL=$URL" >> $GITHUB_ENV
+          echo "::notice title=AI server::$URL"
+      - name: Store the Gemini key on Cloudflare
+        if: steps.ready.outputs.ok == 'true'
+        working-directory: worker
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: printf '%s' "$GEMINI_API_KEY" | $WRANGLER secret put GEMINI_API_KEY
+      - name: Health check
+        if: steps.ready.outputs.ok == 'true' && env.URL != ''
+        run: |
+          sleep 5
+          curl -fsS "$URL/health"
+      - name: Save the server address for the app build
+        if: steps.ready.outputs.ok == 'true' && env.URL != ''
+        run: |
+          if [ "$(cat ai-endpoint.txt 2>/dev/null)" != "$URL" ]; then
+            echo "$URL" > ai-endpoint.txt
+            git config user.name "github-actions[bot]"; git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+            git add ai-endpoint.txt && git commit -m "AI server address" && git pull --rebase origin main && git push origin HEAD:main
+          fi
