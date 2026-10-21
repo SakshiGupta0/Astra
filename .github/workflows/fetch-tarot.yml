@@ -1,0 +1,19 @@
+name: Fetch 1909 tarot scans
+# Downloads the public-domain 1909 Pamela Colman Smith scans from Wikimedia Commons to the tarot-1909 branch.
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: '22' }
+      - run: node tools/tarot/fetch-1909.mjs | tee fetch.log && cat fetch.log >> "$GITHUB_STEP_SUMMARY"
+      - name: Save to the tarot-1909 branch
+        run: |
+          cd out && git init -q && git checkout -q -b tarot-1909 && git add . \
+            && git -c user.name=ci -c user.email=ci@example.com commit -qm "1909 scans from Wikimedia Commons" \
+            && git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" tarot-1909
