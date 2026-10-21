@@ -1,0 +1,26 @@
+name: Quick APK (before tests finish)
+# Publishes the APK a CI run has already built as a pre-release, without waiting for its emulator tests.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id: { description: CI run that built the APK, required: true }
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: apk, path: out, run-id: "${{ inputs.run_id }}", github-token: "${{ github.token }}" }
+      - run: echo "APK=$(ls out/*.apk)" >> $GITHUB_ENV
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: preview-${{ inputs.run_id }}
+          name: ASTRA — preview (tests still running)
+          prerelease: true
+          make_latest: false
+          body: |
+            Early build for a quick look: compiled and core-tested; emulator tests were still running when this was published.
+            Install: tap the .apk below; it installs over the previous build and keeps your details.
+          files: ${{ env.APK }}
