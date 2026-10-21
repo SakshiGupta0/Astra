@@ -87,6 +87,7 @@ fun TarotScreen(app: App, session: Session) {
     val c = Astra.colors
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
+        val avail = maxWidth
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // Header: deep sky with a turning yantra
             CosmicBackground(Modifier.fillMaxWidth().height(if (wide) 170.dp else 150.dp), seed = 21, stars = 40) {
@@ -108,8 +109,8 @@ fun TarotScreen(app: App, session: Session) {
                         else when (ph) {
                             Phase.IDLE -> NewDraw()
                             Phase.SHUFFLING -> Shuffling()
-                            Phase.FAN -> Fan(app, maxWidth)
-                            Phase.SPREAD -> SpreadView(app, session, wide, maxWidth)
+                            Phase.FAN -> Fan(app, avail)
+                            Phase.SPREAD -> SpreadView(app, session, wide, avail)
                         }
                     }
                 }
