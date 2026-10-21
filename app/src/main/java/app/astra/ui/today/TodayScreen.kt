@@ -1,6 +1,7 @@
 // Today: greeting, panchang for where you live, your Moon transit, current period and what's next. No AI in M2.
 package app.astra.ui.today
 
+import app.astra.App
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TodayScreen(app: app.astra.App, session: Session) {
+fun TodayScreen(app: App, session: Session) {
     val c = Astra.colors
     val z = session.zone
     val pCalc by rememberCalc(session) { session.panchangToday }

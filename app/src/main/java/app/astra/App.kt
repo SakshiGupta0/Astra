@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.astra.core.Story
 import app.astra.data.AskBackend
+import app.astra.data.AskResult
+import app.astra.data.CloudError
 import app.astra.data.Cloud
 import app.astra.data.NotifyRepository
 import app.astra.data.PlaceRepository
@@ -90,6 +92,6 @@ object NoBackend : AskBackend {
     override val available = false
     override suspend fun syncFacts(factsJson: String, day: String) {}
     override suspend fun syncStory(story: Story) {}
-    override suspend fun ask(question: String, storyIds: List<String>) = throw app.astra.data.CloudError.NotSetUp()
-    override suspend fun todayLine() = throw app.astra.data.CloudError.NotSetUp()
+    override suspend fun ask(question: String, storyIds: List<String>): AskResult = throw CloudError.NotSetUp()
+    override suspend fun todayLine(): AskResult = throw CloudError.NotSetUp()
 }

@@ -1,6 +1,7 @@
 // Notifications in Me: on/off per loop, time, separate opt-in for demanding-period alerts (PRD F-08).
 package app.astra.ui.me
 
+import app.astra.core.NotifyPrefs
 import android.Manifest
 import android.app.TimePickerDialog
 import android.os.Build
@@ -45,7 +46,7 @@ fun NotifySection(app: App) {
     val on = app.notify.enabled == true
     val p = app.notify.prefs
     val enable = rememberEnableNotifications(app)
-    fun save(next: app.astra.core.NotifyPrefs) { app.notify.save(next); Notifications.schedule(ctx) }
+    fun save(next: NotifyPrefs) { app.notify.save(next); Notifications.schedule(ctx) }
     SectionTitle("Notifications")
     AstraCard(Modifier.testTag("notifyCard")) {
         ToggleRow("Notifications", if (on) "Daily at ${formatTime(NotifyPlanner.fireTime(p))}" else "Off", on,

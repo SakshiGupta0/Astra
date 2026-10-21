@@ -1,6 +1,10 @@
 // Graha Tracker: where every planet is now, where you are in your periods, and what's coming (PRD F-04).
 package app.astra.ui.tracker
 
+import app.astra.App
+import app.astra.ui.me.rememberEnableNotifications
+import app.astra.ui.components.PrimaryButton
+import app.astra.ui.components.SecondaryButton
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,7 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TrackerScreen(app: app.astra.App, session: Session) {
+fun TrackerScreen(app: App, session: Session) {
     var tab by rememberSaveable { mutableStateOf(0) }
     val posCalc by rememberCalc(session) { session.positions }
     val tlCalc by rememberCalc(session) { session.timelineNow }
@@ -79,7 +83,7 @@ fun toneColor(t: Tone) = when (t) { Tone.SUPPORTIVE -> Astra.colors.supportive; 
 fun toneGlyph(t: Tone) = when (t) { Tone.SUPPORTIVE -> "▲"; Tone.MIXED -> "◆"; Tone.DEMANDING -> "▼" }
 
 @Composable
-private fun NowTab(app: app.astra.App, session: Session, positions: List<NowPosition>?, timeline: Timeline?) {
+private fun NowTab(app: App, session: Session, positions: List<NowPosition>?, timeline: Timeline?) {
     val c = Astra.colors
     val z = session.zone
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -217,16 +221,16 @@ private fun Legend() {
 
 /** Asked once, after the first value moment (PRD 9.1 step 7). */
 @Composable
-private fun NotifyOffer(app: app.astra.App) {
+private fun NotifyOffer(app: App) {
     val c = Astra.colors
-    val enable = app.astra.ui.me.rememberEnableNotifications(app)
+    val enable = rememberEnableNotifications(app)
     AstraCard(Modifier.testTag("notifyOffer")) {
         Text("Get a short morning note?", style = Astra.type.heading, color = c.text)
         Text("Like this, at 7:30 am: \"Today: Shukla Dashami · Moon in your 10th · Rahu Kaal 1:30–3:00\". Plus a heads-up when something changes in your chart, at most twice a week.",
             style = Astra.type.label, color = c.text)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            app.astra.ui.components.PrimaryButton("Yes, please", enable, Modifier.weight(1f).testTag("notifyYes"))
-            app.astra.ui.components.SecondaryButton("Not now", { app.notify.setEnabled(false) }, Modifier.weight(1f).testTag("notifyNo"))
+            PrimaryButton("Yes, please", enable, Modifier.weight(1f).testTag("notifyYes"))
+            SecondaryButton("Not now", { app.notify.setEnabled(false) }, Modifier.weight(1f).testTag("notifyNo"))
         }
     }
 }

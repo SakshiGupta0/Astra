@@ -1,5 +1,9 @@
 package app.astra.ui.profile
 
+import app.astra.ui.Session
+import app.astra.ui.me.StorySection
+import app.astra.ui.me.NotifySection
+import app.astra.ui.me.AccountSection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +45,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ProfileScreen(app: App, session: app.astra.ui.Session, onEdit: () -> Unit) {
+fun ProfileScreen(app: App, session: Session, onEdit: () -> Unit) {
     val p = session.profile
     val c = Astra.colors
     var confirmDelete by remember { mutableStateOf(false) }
@@ -50,9 +54,9 @@ fun ProfileScreen(app: App, session: app.astra.ui.Session, onEdit: () -> Unit) {
         Text("Me", style = Astra.type.title, color = c.text)
         app.profiles.lastError?.let { Notice(it) }
 
-        app.astra.ui.me.StorySection(app, session)
-        app.astra.ui.me.NotifySection(app)
-        app.astra.ui.me.AccountSection(app)
+        StorySection(app, session)
+        NotifySection(app)
+        AccountSection(app)
 
         SectionTitle("Birth details")
 

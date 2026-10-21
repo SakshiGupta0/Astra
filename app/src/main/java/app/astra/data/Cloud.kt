@@ -91,7 +91,7 @@ class Cloud(private val context: Context) : AskBackend {
         uid()
         try {
             val res = withTimeout(130_000) { functions.getHttpsCallable("ask").call(data).await() }
-            val m = res.data as Map<String, Any?>
+            val m = res.getData() as Map<String, Any?>
             return AskResult(
                 answer = m["answer"] as String,
                 storyUsed = (m["storyUsed"] as List<String>?) ?: emptyList(),

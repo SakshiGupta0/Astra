@@ -1,6 +1,10 @@
 // Onboarding (also used to edit birth details). Target: under 3 minutes. No account needed in M2.
 package app.astra.ui.onboarding
 
+import app.astra.ui.me.ToggleRow
+import app.astra.ui.me.SelectPill
+import app.astra.ui.components.TextLink
+import app.astra.ui.components.AstraCard
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -263,23 +267,23 @@ private fun StoryStep(d: Draft, onSkip: () -> Unit) {
         Text("• Ask \"Is this a supportive time?\" and ASTRA already knows you're weighing a job offer.", style = Astra.type.label, color = c.text)
         Text("• Your Sunday note mentions the decision you're facing.", style = Astra.type.label, color = c.text)
     }
-    app.astra.ui.me.ToggleRow("Let ASTRA remember my story", "You see and edit every line in Me, and can switch it off any time.", d.storyOn, { d.storyOn = it }, tag = "onboardingStorySwitch")
+    ToggleRow("Let ASTRA remember my story", "You see and edit every line in Me, and can switch it off any time.", d.storyOn, { d.storyOn = it }, tag = "onboardingStorySwitch")
     if (d.storyOn) {
         Text("Life stage", style = Astra.type.bodyStrong, color = c.text)
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LifeStage.entries.forEach { s -> app.astra.ui.me.SelectPill(s.label, d.stage == s, { d.stage = if (d.stage == s) null else s }) }
+            LifeStage.entries.forEach { s -> SelectPill(s.label, d.stage == s, { d.stage = if (d.stage == s) null else s }) }
         }
         Text("What's on your mind?", style = Astra.type.bodyStrong, color = c.text)
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LifeArea.entries.forEach { a -> app.astra.ui.me.SelectPill(a.label, a in d.areas, { d.areas = if (a in d.areas) d.areas - a else d.areas + a }) }
+            LifeArea.entries.forEach { a -> SelectPill(a.label, a in d.areas, { d.areas = if (a in d.areas) d.areas - a else d.areas + a }) }
         }
         AField(d.nowLine, { d.nowLine = it.take(StoryRules.MAX_TEXT) }, "What's going on right now? (optional)", placeholder = "e.g. Deciding between two job offers", tag = "onboardingNow")
     }
-    app.astra.ui.components.TextLink("Skip for now", onSkip, Modifier.testTag("skipStory"))
+    TextLink("Skip for now", onSkip, Modifier.testTag("skipStory"))
 }
 
 @Composable
-private fun AstraCardInline(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) = app.astra.ui.components.AstraCard(content = content)
+private fun AstraCardInline(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) = AstraCard(content = content)
 
 @Composable
 private fun LanguageStep(d: Draft) {

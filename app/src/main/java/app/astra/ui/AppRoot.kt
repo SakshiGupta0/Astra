@@ -81,7 +81,7 @@ private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: ()
     var tab by rememberSaveable { mutableStateOf(Tab.TRACKER) }
     val requested = activity?.openTab?.value
     LaunchedEffect(requested) {
-        requested?.let { name -> Tab.entries.firstOrNull { it.name == name }?.let { tab = it }; activity.openTab.value = null }
+        requested?.let { name -> Tab.entries.firstOrNull { it.name == name }?.let { tab = it }; activity?.openTab?.value = null }
     }
     val c = Astra.colors
     Scaffold(

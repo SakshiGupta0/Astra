@@ -3,6 +3,9 @@
 package app.astra
 
 import android.graphics.Bitmap
+import app.astra.core.NotifyKind
+import app.astra.system.Notifications
+import app.astra.ui.ask.AskState
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -44,7 +47,7 @@ class SmokeTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as App
 
     @Before fun reset() {
-        rule.runOnUiThread { app.deleteEverything(); app.backend = NoBackend; app.astra.ui.ask.AskState.resetForTests() }
+        rule.runOnUiThread { app.deleteEverything(); app.backend = NoBackend; AskState.resetForTests() }
         rule.waitForIdle()
     }
 
@@ -213,9 +216,9 @@ class SmokeTest {
         rule.onNodeWithTag("notifyYes").performClick()
         rule.waitForIdle()
         assertTrue(app.notify.enabled == true)
-        val posted = app.astra.system.Notifications.runDaily(app)
-        assertTrue("no daily note: $posted", posted.any { it.kind != app.astra.core.NotifyKind.EVENT })
-        assertTrue("daily note repeated", app.astra.system.Notifications.runDaily(app).none { it.kind != app.astra.core.NotifyKind.EVENT })
+        val posted = Notifications.runDaily(app)
+        assertTrue("no daily note: $posted", posted.any { it.kind != NotifyKind.EVENT })
+        assertTrue("daily note repeated", Notifications.runDaily(app).none { it.kind != NotifyKind.EVENT })
         rule.onNodeWithTag("tab_ME").performClick()
         rule.onNodeWithTag("notifyCard").performScrollTo()
         shot("61_me_notifications")
