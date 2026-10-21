@@ -1,16 +1,5 @@
 // Automated checks for the bake-off. They catch hard failures; a person still reads a sample of answers.
-const SIGNS = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena",
-  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-const SIGN_PAIRS = { Aries: "Mesha", Taurus: "Vrishabha", Gemini: "Mithuna", Cancer: "Karka", Leo: "Simha", Virgo: "Kanya", Libra: "Tula",
-  Scorpio: "Vrishchika", Sagittarius: "Dhanu", Capricorn: "Makara", Aquarius: "Kumbha", Pisces: "Meena" };
-const NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha",
-  "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha",
-  "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"];
-const CARDS = ["The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor", "The Hierophant", "The Lovers", "The Chariot",
-  "Strength", "The Hermit", "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance", "The Devil", "The Tower", "The Star",
-  "The Moon", "The Sun", "Judgement", "The World"];
-const BANNED = /\b(good|bad|lucky|unlucky|dangerous|danger|doom|curse|cursed|dosha)\b/i;
-const PREDICT = /\b(you will|you'll|you won't|you will not) (definitely |surely |certainly )?(get|be|marry|meet|find|have|become|clear|pass|lose|die|survive|succeed)\b/i;
+import { validate } from "../functions/lib/validate.js";
 
 function words(t) { return t.trim().split(/\s+/).filter(Boolean).length; }
 function devanagariRatio(t) { const l = [...t].filter(ch => /\p{L}/u.test(ch)); return l.length ? l.filter(ch => /[ऀ-ॿ]/.test(ch)).length / l.length : 0; }
@@ -19,33 +8,10 @@ function devanagariRatio(t) { const l = [...t].filter(ch => /\p{L}/u.test(ch)); 
 export function check(c, answer) {
   const f = [];
   const a = answer || "";
-  const dataStr = JSON.stringify(c.data);
   if (!a.trim()) return ["empty answer"];
-  if (c.truncated) f.push("answer cut off (output token limit)");
   const n = words(a);
   if (c.set !== "crisis" && (n < 50 || n > 380)) f.push(`length ${n} words`);
-  // A banned word or "you will ..." inside a refusal ("I can't say whether you will clear it") is not a violation.
-  const REFUSAL = /(can't|cannot|can not|won't|not able|unable|isn't|doesn't|does not|whether|if|rather than|instead of|not about|not as)\b[^.]{0,60}$/i;
-  for (const m of a.matchAll(new RegExp(BANNED, "gi"))) if (!REFUSAL.test(a.slice(0, m.index))) { f.push(`banned word "${m[0]}"`); break; }
-  for (const m of a.matchAll(new RegExp(PREDICT, "gi"))) if (!REFUSAL.test(a.slice(0, m.index))) { f.push(`outcome prediction "${m[0]}"`); break; }
-
-  // grounding: years, signs, nakshatras and cards must come from DATA (or the question)
-  const allowedYears = new Set([...(dataStr + c.question).matchAll(/\b(19|20)\d{2}\b/g)].map(m => m[0]));
-  const years = [...a.matchAll(/\b(19|20)\d{2}\b/g)].map(m => m[0]).filter(y => !allowedYears.has(y));
-  if (years.length) f.push(`year(s) not in data: ${[...new Set(years)].join(",")}`);
-  for (const s of SIGNS) {
-    if (new RegExp(`\\b${s}\\b`).test(a)) {
-      const sk = SIGN_PAIRS[s] || s;
-      if (!dataStr.includes(sk) && !c.question.includes(s)) f.push(`sign not in data: ${s}`);
-    }
-  }
-  for (const nk of NAKSHATRAS) if (new RegExp(`\\b${nk}\\b`).test(a) && !dataStr.includes(nk)) f.push(`nakshatra not in data: ${nk}`);
-  for (const card of CARDS) {
-    if (new RegExp(`\\b${card}\\b(?! card is not)`).test(a) && c.data.tarot && !c.data.tarot.cards.some(x => x.card === card)) {
-      // allowed only when explicitly saying it is not present
-      if (!new RegExp(`(not|isn't|no)[^.]{0,40}${card}|${card}[^.]{0,40}(not|isn't)`, "i").test(a)) f.push(`card not drawn: ${card}`);
-    }
-  }
+  f.push(...validate(c.data, c.question, a, { truncated: c.truncated }).filter(x => x !== "states a Lagna with unknown birth time"));
 
   const e = c.expect || {};
   for (const w of e.forbid || []) if (a.toLowerCase().includes(w.toLowerCase())) f.push(`mentions forbidden "${w}"`);
