@@ -2,7 +2,7 @@
 import { test, before, after } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, addDoc, collection, getDocs } from "firebase/firestore";
 
 let env;
 before(async () => {
@@ -36,4 +36,19 @@ test("usage counters are read-only for the user and hidden from others", async (
   await assertFails(setDoc(doc(me, "users/alice/usage/2026-10-21"), { ask: 0 }));
   await assertFails(getDoc(doc(me, "usage/2026-10-21")));
   await assertFails(setDoc(doc(me, "usage/2026-10-21"), { usd: 0 }));
+});
+
+test("card draws and consent records: own only; the owner can list and delete everything (account deletion)", async () => {
+  const me = env.authenticatedContext("carol").firestore();
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(setDoc(doc(me, "users/carol/draws/d1"), { facts: "{}" }));
+  await assertSucceeds(addDoc(collection(me, "users/carol/consents"), { purpose: "my_story", granted: true, copy_version: "story-consent-1" }));
+  await assertFails(getDoc(doc(bob, "users/carol/draws/d1")));
+  await assertFails(getDocs(collection(bob, "users/carol/consents")));
+  await assertFails(addDoc(collection(bob, "users/carol/consents"), { granted: false }));
+  const list = await assertSucceeds(getDocs(collection(me, "users/carol/consents")));
+  for (const d of list.docs) await assertSucceeds(deleteDoc(d.ref));
+  await assertSucceeds(deleteDoc(doc(me, "users/carol/draws/d1")));
+  await assertSucceeds(deleteDoc(doc(me, "users/carol")));
+  await assertFails(deleteDoc(doc(bob, "users/alice/facts/current")));
 });

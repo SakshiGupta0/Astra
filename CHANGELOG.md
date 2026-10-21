@@ -1,5 +1,27 @@
 # Changelog
 
+## app 0.4.0 — M4 (21 Oct 2026)
+### Added
+- **Tarot tab** with ASTRA's own 78-card deck (original line-art designs in the design guide's palette; card back with the ASTRA mark). Ask a question or just draw; one card or three (What's behind it · Where you are · What can help). Secure shuffle, cards upright or reversed, saved before anything is read into them. Turn each card over yourself; tarot's meanings show instantly and offline.
+- **AI tarot reading** of the saved draw (counts as one of the 15 daily questions), using story items that fit when My Story is on. Tarot-only readings get no chart facts, so the two traditions stay separate.
+- **Cross-Reading**: a three-card draw read with your chart in five fixed parts (Your chart · Your cards · Where they meet · Where they differ · Questions to sit with). Two a day; a failed one doesn't use one up. Rate it after reading.
+- **Today's card**: one per day, kept for the day. Tap to turn it over, then ask about it.
+- **Check-ins**: three weeks after you add something to "On my mind", ASTRA asks what happened (on Today and, if you allow, as a notification). Answer in a line: resolved or still open. Resolved items can become a life event. Choose how often (weekly to monthly, or off) in Me → My Story. At most one a day.
+- **Life events on the tracker**: shown as markers on the timeline and in a list; tap one to see what your chart showed that month (dasha, tone, Jupiter, Saturn, Rahu–Ketu). Every band and event has "Ask about this".
+- **"Add to My Story?"**: when a question touches something your story doesn't cover, ASTRA offers to add it. Nothing is saved unless you tap Add.
+- **Chart moves into the Tracker** (Now · Timeline · Chart), so the tab bar is Today · Tracker · Tarot · Ask · Me.
+- **Saved readings** filter by Questions / Tarot / Cross-Readings and keep the cards you drew.
+- **Share my story as a PDF** as well as text.
+- **Privacy & data** in Me: the privacy notice (also public at /privacy), anonymous usage stats on or off, Send feedback, and **Delete my account** (removes everything on the server and the phone).
+- **Consent records**: each time My Story is turned on or off, a record with the consent text version is kept in your space (DPDP evidence).
+- **Usage stats**: content-free events (which features are used, never questions, answers, story or birth details) for the beta measures, plus error type and screen for crashes. The server accepts only known event names and short codes.
+### AI server
+- New modes: tarot and Cross-Reading, reading the draw from your space. Card names are checked against the 78-card deck, including "the Moon" (planet) vs The Moon (card). Prompt interp-0.5.
+- New endpoints: usage events, feedback, delete-me, and the public privacy page.
+### Beta tooling (M5)
+- Daily **beta report** scoring the PRD 6.2 decision rules from usage events (aggregates only), saved to the beta-report branch.
+- Every release also carries an **.aab** for the Play Console testing track (docs/PLAY-CONSOLE.md). Alpha and beta steps: docs/BETA-PLAYBOOK.md.
+
 ## app 0.3.0 — M3 (21 Oct 2026)
 ### Added
 - **My Story.** Offered during onboarding (off unless you turn it on, with Skip) and once more after your first saved answer. In Me you can set your life stage and what matters most, write what's going on right now, keep a list of what's on your mind (mark it resolved with an outcome), add life events, see earlier readings, share a summary with an astrologer (you choose what's included), switch it off (items kept, not used) or delete it.

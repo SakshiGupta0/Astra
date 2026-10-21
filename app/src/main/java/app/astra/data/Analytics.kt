@@ -23,8 +23,8 @@ class Analytics(context: Context, private val cloud: () -> Cloud?, private val s
     private val lock = Mutex()
 
     /** Usage stats on/off (Me → Privacy). On by default for the beta, disclosed in the privacy notice. */
-    var enabled: Boolean by mutableStateOf(sp.getBoolean("analytics", true))
-        private set
+    private var on by mutableStateOf(sp.getBoolean("analytics", true))
+    val enabled: Boolean get() = on
 
     /** Screen the user is on, for content-free error reports. */
     @Volatile var screen: String = "start"
@@ -34,9 +34,9 @@ class Analytics(context: Context, private val cloud: () -> Cloud?, private val s
 
     fun dayIndex(today: LocalDate = LocalDate.now()): Int = ChronoUnit.DAYS.between(installDate, today).toInt()
 
-    fun setEnabled(on: Boolean) {
-        sp.edit().putBoolean("analytics", on).apply(); enabled = on
-        if (!on) runCatching { file.delete() }
+    fun setEnabled(value: Boolean) {
+        sp.edit().putBoolean("analytics", value).apply(); on = value
+        if (!value) runCatching { file.delete() }
     }
 
     /** Records an event. Property values must be short codes, numbers or booleans. */
