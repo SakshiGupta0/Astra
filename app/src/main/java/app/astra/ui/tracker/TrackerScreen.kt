@@ -188,7 +188,7 @@ private fun TimelineTab(app: App, session: Session, timeline: Timeline?, onAsk: 
             val m = ChartAt.ofMonth(session.chart, e.month, z)
             val mid = m.at
             BandItem(STORY_ROW, mid.minus(java.time.Duration.ofDays(8)), mid.plus(java.time.Duration.ofDays(8)), e.title.take(18),
-                "${e.title} · ${Fmt.monthYear(mid, z)}", listOf("What your chart showed then:") + m.lines(), c.accent)
+                "${e.title} · ${e.month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH))}", listOf("What your chart showed then:") + m.lines(), c.accent)
         }
     }
     fun select(item: BandItem) {
