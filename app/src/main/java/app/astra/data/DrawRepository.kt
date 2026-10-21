@@ -26,5 +26,19 @@ class DrawRepository(dir: File) {
     fun revealed(day: LocalDate): Boolean = runCatching { revealedFile.readText() == day.toString() }.getOrDefault(false)
     fun markRevealed(day: LocalDate) { runCatching { revealedFile.writeText(day.toString()) } }
 
-    fun clearFile() { file.delete(); revealedFile.delete(); daily = null }
+    private val guidanceFile = File(dir, "daily_guidance.json")
+    private val guidanceSeenFile = File(dir, "daily_guidance_seen.txt")
+    var guidance: app.astra.core.OracleDraw? = runCatching { if (guidanceFile.exists()) app.astra.core.OracleCodec.decode(guidanceFile.readText()) else null }.getOrNull()
+        private set
+
+    /** Today's guidance card (ASTRA oracle), one per calendar day. */
+    fun guidanceFor(day: LocalDate): app.astra.core.OracleDraw {
+        val d = app.astra.core.Oracle.dailyGuidance(guidance, day)
+        if (d !== guidance) { runCatching { guidanceFile.writeAtomically(app.astra.core.OracleCodec.encode(d)) }; guidance = d }
+        return d
+    }
+    fun guidanceRevealed(day: LocalDate): Boolean = runCatching { guidanceSeenFile.readText() == day.toString() }.getOrDefault(false)
+    fun markGuidanceRevealed(day: LocalDate) { runCatching { guidanceSeenFile.writeText(day.toString()) } }
+
+    fun clearFile() { file.delete(); revealedFile.delete(); daily = null; guidanceFile.delete(); guidanceSeenFile.delete(); guidance = null }
 }

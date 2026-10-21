@@ -29,10 +29,13 @@ import app.astra.ui.Session
 import app.astra.ui.components.AField
 import app.astra.ui.components.AstraCard
 import app.astra.ui.components.Pill
+import app.astra.ui.components.Overline
 import app.astra.ui.components.PrimaryButton
 import app.astra.ui.components.SecondaryButton
 import app.astra.ui.components.TextLink
 import app.astra.ui.tarot.TarotCardView
+import app.astra.ui.tarot.OracleCardView
+import androidx.compose.foundation.layout.fillMaxWidth
 import app.astra.ui.tarot.TarotState
 import app.astra.ui.theme.Astra
 import java.time.YearMonth
@@ -105,31 +108,45 @@ fun SurveyCard(app: App, session: Session) {
     }
 }
 
-/** One card per calendar day, kept for the day. Tap to turn it over, then ask about it in Tarot. */
+/** Today's two cards: one classic tarot card and one ASTRA guidance card, each kept for the day. Tap to turn them over. */
 @Composable
 fun DailyCard(app: App, session: Session, onOpenTarot: () -> Unit) {
     val c = Astra.colors
     val draw = remember(session.today) { app.draws.dailyFor(session.today) }
+    val guide = remember(session.today) { app.draws.guidanceFor(session.today) }
     var revealed by remember(session.today) { mutableStateOf(app.draws.revealed(session.today)) }
+    var guideShown by remember(session.today) { mutableStateOf(app.draws.guidanceRevealed(session.today)) }
     val dc = draw.cards.first()
-    AstraCard(Modifier.animateContentSize().testTag("dailyCard")) {
-        Text("Today's card", style = Astra.type.heading, color = c.text)
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
-            TarotCardView(dc.card, dc.reversed, revealed, 92.dp, Modifier.testTag("dailyCardFace"), onClick = {
-                if (!revealed) { revealed = true; app.draws.markRevealed(session.today) }
-            })
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (!revealed) {
-                    Text("Your card for ${session.today.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }} is waiting. Tap to turn it over.",
-                        style = Astra.type.label, color = c.textSecondary)
-                } else {
-                    Text(dc.card.name, style = Astra.type.bodyStrong, color = c.text)
-                    if (dc.reversed) Pill("Reversed", c.lavender, filled = true)
-                    Text("In tarot: ${dc.meaning}.", style = Astra.type.label, color = c.textSecondary)
-                    TextLink("Ask about today's card", { TarotState.open(draw, faceUp = true); onOpenTarot() }, Modifier.testTag("askDailyCard"))
+    AstraCard(Modifier.animateContentSize().testTag("dailyCard"), glint = true) {
+        Overline("Today's cards · ${session.today.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}")
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val w = androidx.compose.ui.unit.min((maxWidth - 16.dp) / 2, 190.dp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TarotCardView(dc.card, dc.reversed, revealed, w, Modifier.testTag("dailyCardFace"), onClick = {
+                        if (!revealed) { revealed = true; app.draws.markRevealed(session.today) }
+                    })
+                    Text("TAROT", style = Astra.type.overline, color = c.lavender)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OracleCardView(guide.card, guideShown, w, Modifier.testTag("guidanceCardFace"), onClick = {
+                        if (!guideShown) { guideShown = true; app.draws.markGuidanceRevealed(session.today) }
+                    })
+                    Text("GUIDANCE", style = Astra.type.overline, color = c.lavender)
                 }
             }
         }
-        Box {}
+        if (!revealed && !guideShown) Text("Two cards are waiting for you. Tap each to turn it over.", style = Astra.type.label, color = c.textSecondary)
+        if (revealed) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(dc.card.name, style = Astra.type.heading, color = c.text)
+                if (dc.reversed) Pill("Reversed", c.lavender, filled = true)
+            }
+            Text("In tarot: ${dc.meaning}.", style = Astra.type.label, color = c.textSecondary)
+            TextLink("Ask about today's card", { TarotState.open(draw, faceUp = true); onOpenTarot() }, Modifier.testTag("askDailyCard"))
+        }
+        if (guideShown) {
+            Text(guide.card.title.lowercase().replaceFirstChar { it.uppercase() } + " · " + guide.card.line, style = Astra.type.body, color = c.text, modifier = Modifier.testTag("guidanceText"))
+        }
     }
 }

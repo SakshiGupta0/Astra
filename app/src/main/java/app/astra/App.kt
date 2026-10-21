@@ -1,4 +1,4 @@
-// ASTRA v0.4.0
+// ASTRA v0.5.0
 package app.astra
 
 import android.app.Application

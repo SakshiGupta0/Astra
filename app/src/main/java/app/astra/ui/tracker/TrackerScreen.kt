@@ -34,6 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import app.astra.ui.components.TextLink
+import app.astra.ui.components.Overline
+import app.astra.ui.theme.Mandala
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astra.R
@@ -71,18 +76,21 @@ fun TrackerScreen(app: App, session: Session, onAsk: (String) -> Unit = {}) {
     val positions = posCalc.valueOrNull
     val timeline = tlCalc.valueOrNull
     val c = Astra.colors
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val wide = maxWidth >= 840.dp
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
-            Text("Graha Tracker", style = Astra.type.title, color = c.text)
-            Text("${Fmt.date(session.at, session.zone)} · ${session.profile.currentPlace.label.substringBefore(',')}", style = Astra.type.meta, color = c.textSecondary)
+            Overline("Graha Tracker · ${Fmt.date(session.at, session.zone)}")
+            Text("Where you are", style = Astra.type.hero, color = c.text)
             Segmented(listOf("Now", "Timeline", "Chart"), tab, { tab = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("trackerTabs"))
             (posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
         }
         when (tab) {
-            0 -> NowTab(app, session, positions, timeline)
+            0 -> NowTab(app, session, positions, timeline, wide)
             1 -> TimelineTab(app, session, timeline, onAsk)
             else -> ChartScreen(session, embedded = true)
         }
+    }
     }
 }
 
@@ -91,13 +99,28 @@ fun toneColor(t: Tone) = when (t) { Tone.SUPPORTIVE -> Astra.colors.supportive; 
 fun toneGlyph(t: Tone) = when (t) { Tone.SUPPORTIVE -> "▲"; Tone.MIXED -> "◆"; Tone.DEMANDING -> "▼" }
 
 @Composable
-private fun NowTab(app: App, session: Session, positions: List<NowPosition>?, timeline: Timeline?) {
+private fun NowTab(app: App, session: Session, positions: List<NowPosition>?, timeline: Timeline?, wide: Boolean) {
+    val moonSign = session.chart.moon.rashi
+    if (wide) Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Box(Modifier.weight(0.9f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Mandala(Modifier.fillMaxWidth(0.98f).aspectRatio(1f), alpha = 0.18f)
+            if (positions != null) SkyWheel(positions, moonSign, Modifier.fillMaxWidth(0.9f).testTag("skyWheel"))
+        }
+        Box(Modifier.weight(1f)) { NowDetails(app, session, positions, timeline, showWheel = false) }
+    } else NowDetails(app, session, positions, timeline, showWheel = true)
+}
+
+@Composable
+private fun NowDetails(app: App, session: Session, positions: List<NowPosition>?, timeline: Timeline?, showWheel: Boolean) {
     val c = Astra.colors
     val z = session.zone
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (showWheel && positions != null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            SkyWheel(positions, session.chart.moon.rashi, Modifier.widthIn(max = 380.dp).fillMaxWidth().testTag("skyWheel"))
+        }
         // Where you are
-        AstraCard(Modifier.testTag("whereYouAre")) {
-            Text("Where you are", style = Astra.type.heading, color = c.text)
+        AstraCard(Modifier.testTag("whereYouAre"), glint = true) {
+            Overline("Your periods")
             val dn = session.chart.dasha.at(session.at)
             if (dn != null) {
                 Text("${dn.maha.lord.english} mahadasha", style = Astra.type.bodyStrong, color = c.accent, modifier = Modifier.testTag("mahadasha"))

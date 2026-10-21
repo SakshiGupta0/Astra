@@ -45,6 +45,9 @@ import app.astra.ui.components.TextLink
 import app.astra.ui.theme.Astra
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
 
 @Composable
 fun ProfileScreen(app: App, session: Session, onEdit: () -> Unit) {
@@ -54,8 +57,9 @@ fun ProfileScreen(app: App, session: Session, onEdit: () -> Unit) {
     var advanced by remember { mutableStateOf(p.utcOffsetOverrideMinutes != null) }
     var notice by remember { mutableStateOf(false) }
     if (notice) { PrivacyNoticeScreen(onBack = { notice = false }); return }
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Me", style = Astra.type.title, color = c.text)
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.widthIn(max = 760.dp).fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Me", style = Astra.type.hero, color = c.text)
         app.profiles.lastError?.let { Notice(it) }
 
         StorySection(app, session)
@@ -95,10 +99,11 @@ fun ProfileScreen(app: App, session: Session, onEdit: () -> Unit) {
             KeyValue("Calculation", CoreVersion.CALC.substringBefore(":"))
             Text(if (app.backend.available) "Charts, the tracker, panchang and card draws are calculated on this phone. To answer your questions, ASTRA keeps a copy of your calculated chart, your card draws and the story items you allow in your own private space on the server; nothing is used to train AI models."
                 else "Charts, the tracker and panchang are calculated on this phone. Your details are stored only on this phone.", style = Astra.type.meta, color = c.textSecondary)
-            Text("Credits: Astronomy Engine by Don Cross (MIT) · Place data © GeoNames (CC BY 4.0) · Playfair Display and Inter (SIL Open Font Licence) · Lucide icons (ISC). Tarot deck: original ASTRA designs.",
+            Text("Credits: Astronomy Engine by Don Cross (MIT) · Place data © GeoNames (CC BY 4.0) · Playfair Display, Inter and Cinzel (SIL Open Font Licence) · Lucide icons (ISC) · Classic tarot: Pamela Colman Smith, 1909 (public domain; scans from Wikimedia Commons) · Card back and oracle decks: ASTRA's own designs.",
                 style = Astra.type.meta, color = c.textSecondary)
         }
         SecondaryButton("Delete everything from this phone", { confirmDelete = true }, Modifier.fillMaxWidth().padding(bottom = 24.dp))
+    }
     }
     if (confirmDelete) AlertDialog(
         onDismissRequest = { confirmDelete = false },

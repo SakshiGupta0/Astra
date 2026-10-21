@@ -41,7 +41,7 @@ data class AstraColors(
 
 val DarkAstra = AstraColors(
     dark = true,
-    background = Color(0xFF080F24), backgroundAlt = Color(0xFF181648), surface = Color(0xFF242344),
+    background = Color(0xFF080F24), backgroundAlt = Color(0xFF1B1446), surface = Color(0xFF221A4D),
     border = Color(0xFF3A3866), purple = Color(0xFF602D89), lavender = Color(0xFFA78BFA),
     gold = Color(0xFFF7D794), accent = Color(0xFFF7D794), onGold = Color(0xFF14102E),
     text = Color(0xFFF5F3FF), textSecondary = Color(0xFFAAB0C5),
@@ -49,17 +49,19 @@ val DarkAstra = AstraColors(
     error = Color(0xFFFFB4A8)
 )
 
+/** Light mode: the same ornament on parchment, with deep indigo text and antique gold lines. */
 val LightAstra = AstraColors(
     dark = false,
-    background = Color(0xFFF7F5FD), backgroundAlt = Color(0xFFEDE9FA), surface = Color(0xFFFFFFFF),
-    border = Color(0xFFD9D4EE), purple = Color(0xFF602D89), lavender = Color(0xFF5B3FC4),
+    background = Color(0xFFF7F2E8), backgroundAlt = Color(0xFFEFE5D2), surface = Color(0xFFFFFDF8),
+    border = Color(0xFFD9C9A3), purple = Color(0xFF602D89), lavender = Color(0xFF5B3FC4),
     gold = Color(0xFFF7D794), accent = Color(0xFF602D89), onGold = Color(0xFF14102E),
-    text = Color(0xFF15133A), textSecondary = Color(0xFF575B75),
+    text = Color(0xFF1E1946), textSecondary = Color(0xFF5B5677),
     supportive = Color(0xFFE2B85A), mixed = Color(0xFF8C73E6), demanding = Color(0xFF5E6390),
     error = Color(0xFFB3261E)
 )
 
 val Playfair = FontFamily(Font(R.font.playfair_medium, FontWeight.Medium), Font(R.font.playfair_semibold, FontWeight.SemiBold))
+val Cinzel = FontFamily(Font(R.font.cinzel_semibold, FontWeight.SemiBold))
 val Inter = FontFamily(Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_medium, FontWeight.Medium), Font(R.font.inter_semibold, FontWeight.SemiBold))
 
 @Immutable
@@ -70,7 +72,10 @@ data class AstraType(
     val body: TextStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
     val bodyStrong: TextStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 22.sp),
     val label: TextStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
-    val meta: TextStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp)
+    val meta: TextStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
+    /** Small capitals for overlines, card numerals and section marks. */
+    val overline: TextStyle = TextStyle(fontFamily = Cinzel, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 3.sp),
+    val hero: TextStyle = TextStyle(fontFamily = Playfair, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 38.sp)
 )
 
 object Dimens {

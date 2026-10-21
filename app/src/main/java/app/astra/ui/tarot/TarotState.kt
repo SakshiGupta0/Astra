@@ -9,6 +9,7 @@ import app.astra.App
 import app.astra.core.Reading
 import app.astra.core.ReplyLanguage
 import app.astra.core.Spread
+import app.astra.core.Oracle
 import app.astra.core.StoryItem
 import app.astra.core.StoryRules
 import app.astra.core.Tarot
@@ -31,7 +32,49 @@ class ReadingTurn(val mode: String) {
     var rating by mutableStateOf<Int?>(null)
 }
 
+enum class Phase { IDLE, SHUFFLING, FAN, SPREAD }
+
 object TarotState {
+    /** Null = the classic tarot; otherwise the oracle deck being used. */
+    var oracleDeck by mutableStateOf<app.astra.core.OracleDeck?>(null)
+    var oracle by mutableStateOf<app.astra.core.OracleDraw?>(null)
+    var oracleRevealed by mutableStateOf(false)
+
+    var phase by mutableStateOf(Phase.IDLE)
+    private var shuffled: List<app.astra.core.DrawnCard> = emptyList()
+    /** Fan positions the user has tapped, in order. */
+    val picks = mutableStateListOf<Int>()
+    var pendingSpread by mutableStateOf(Spread.THREE)
+    private var pendingQuestion = ""
+    /** Cards shown in the fan. */
+    const val FAN_SIZE = 21
+
+    /** Shuffles the whole deck; the user then chooses their cards from the fan. */
+    fun startShuffle(spread: Spread, question: String) {
+        shuffled = Tarot.shuffle(); picks.clear(); pendingSpread = spread; pendingQuestion = question
+        draw = null; reading = null; cross = null; revealed.clear(); phase = Phase.SHUFFLING
+    }
+
+    fun shuffleDone() { if (phase == Phase.SHUFFLING) phase = Phase.FAN }
+
+    /** Taps a card in the fan; when enough are chosen, the draw is made from them (and saved before any reading). */
+    fun pick(app: App, i: Int) {
+        if (phase != Phase.FAN || i in picks || i !in 0 until FAN_SIZE) return
+        picks += i
+        if (picks.size == pendingSpread.positions.size) {
+            val d = Tarot.fromPicks(shuffled, picks.toList(), pendingSpread, pendingQuestion)
+            open(d, faceUp = false)
+            app.analytics.log("tarot_drawn", "spread" to pendingSpread.name.lowercase())
+        }
+    }
+
+    fun chooseForMe(app: App) { var k = 0; while (phase == Phase.FAN && k < FAN_SIZE) { if (k !in picks) pick(app, k); k++ } }
+
+    fun drawOracle(app: App, deck: app.astra.core.OracleDeck, question: String) {
+        oracle = Oracle.draw(deck, question); oracleRevealed = false
+        app.analytics.log("tarot_drawn", "spread" to "oracle_" + deck.name.lowercase())
+    }
+
     var draw by mutableStateOf<TarotDraw?>(null)
         private set
     val revealed = mutableStateListOf<Boolean>()
@@ -53,7 +96,7 @@ object TarotState {
 
     /** Opens an existing draw (today's card, or a saved reading). */
     fun open(d: TarotDraw, faceUp: Boolean) {
-        draw = d
+        draw = d; phase = Phase.SPREAD; oracleDeck = null
         revealed.clear(); repeat(d.cards.size) { revealed += faceUp }
         reading = null; cross = null
     }
@@ -61,7 +104,7 @@ object TarotState {
     fun reveal(i: Int) { if (i in revealed.indices) revealed[i] = true }
     fun revealAll() { for (i in revealed.indices) revealed[i] = true }
 
-    fun reset() { draw = null; revealed.clear(); reading = null; cross = null }
+    fun reset() { draw = null; revealed.clear(); reading = null; cross = null; phase = Phase.IDLE; picks.clear(); oracle = null; oracleRevealed = false }
 
     /** Saves the draw to the user's space before any interpretation (the server reads it from there). */
     private suspend fun ensureSynced(app: App, session: Session, d: TarotDraw, withFacts: Boolean) {
@@ -140,5 +183,5 @@ object TarotState {
         }
     }
 
-    fun resetForTests() { reset(); crossLeft = null; syncedDrawId = null }
+    fun resetForTests() { reset(); crossLeft = null; syncedDrawId = null; oracleDeck = null }
 }

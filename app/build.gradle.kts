@@ -22,8 +22,8 @@ android {
         applicationId = "app.astra"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.4.0"
+        versionCode = 4
+        versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "FIREBASE", firebaseConfigured.toString())
         buildConfigField("String", "AI_URL", "\"$aiUrl\"")

@@ -1,6 +1,27 @@
 // Reusable ASTRA components (design guide, section 6: core component styling).
 package app.astra.ui.components
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextAlign
+import app.astra.ui.theme.CardFill
+import app.astra.ui.theme.CosmicBackground
+import app.astra.ui.theme.Gold
+import app.astra.ui.theme.GoldDeep
+import app.astra.ui.theme.GoldLeaf
+import app.astra.ui.theme.mysticClock
+import app.astra.ui.theme.ornate
+import app.astra.ui.theme.sparkle
+
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -46,15 +67,23 @@ fun AIcon(@DrawableRes id: Int, contentDescription: String?, tint: Color = Astra
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val c = Astra.colors
+    val sheen by mysticClock(5_000, still = 2f, label = "sheen")
     Box(
         modifier
             .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(Dimens.buttonRadius))
-            .background(if (enabled) c.gold else c.gold.copy(alpha = 0.35f))
+            .background(if (enabled) GoldLeaf else SolidColor(c.gold.copy(alpha = 0.35f)))
+            .drawWithContent {
+                drawContent()
+                if (enabled && sheen < 0.3f) {
+                    val x = size.width * (sheen / 0.3f) * 1.4f - size.width * 0.2f
+                    drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.45f), Color.Transparent), x - 60f, x + 60f))
+                }
+            }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center
-    ) { Text(text, style = Astra.type.bodyStrong, color = c.onGold.copy(alpha = if (enabled) 1f else 0.6f)) }
+    ) { Text(text, style = Astra.type.bodyStrong, color = c.onGold.copy(alpha = if (enabled) 1f else 0.6f), textAlign = TextAlign.Center) }
 }
 
 @Composable
@@ -64,11 +93,12 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
         modifier
             .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(Dimens.buttonRadius))
-            .border(BorderStroke(1.dp, c.border), RoundedCornerShape(Dimens.buttonRadius))
+            .background(c.lavender.copy(alpha = if (c.dark) 0.08f else 0.05f))
+            .border(BorderStroke(1.dp, c.lavender.copy(alpha = 0.7f)), RoundedCornerShape(Dimens.buttonRadius))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center
-    ) { Text(text, style = Astra.type.bodyStrong, color = c.text) }
+    ) { Text(text, style = Astra.type.bodyStrong, color = c.text, textAlign = TextAlign.Center) }
 }
 
 @Composable
@@ -79,19 +109,42 @@ fun TextLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun AstraCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, padding: PaddingValues = PaddingValues(16.dp), content: @Composable ColumnScope.() -> Unit) {
-    val c = Astra.colors
+fun AstraCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, padding: PaddingValues = PaddingValues(18.dp), glint: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .fillMaxWidth()
+            .shadow(if (Astra.colors.dark) 10.dp else 3.dp, RoundedCornerShape(Dimens.cardRadius), ambientColor = Color.Black, spotColor = if (Astra.colors.dark) Color.Black else GoldDeep)
             .clip(RoundedCornerShape(Dimens.cardRadius))
-            .background(c.surface)
-            .border(1.dp, c.border.copy(alpha = 0.6f), RoundedCornerShape(Dimens.cardRadius))
+            .background(CardFill)
+            .ornate(Dimens.cardRadius, glint = glint)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(padding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
+}
+
+/** Small capitals line above a title: "YOUR DAY", "TODAY'S CARD · III". */
+@Composable
+fun Overline(text: String, modifier: Modifier = Modifier, color: Color = Astra.colors.accent) =
+    Text(text.uppercase(), style = Astra.type.overline, color = color, modifier = modifier)
+
+/** Lotus divider between sections (decorative). */
+@Composable
+fun LotusDivider(modifier: Modifier = Modifier) {
+    val c = Astra.colors
+    val gold = if (c.dark) Gold else GoldDeep
+    Canvas(modifier.fillMaxWidth().height(22.dp).clearAndSetSemantics { }) {
+        val cx = size.width / 2; val cy = size.height / 2; val s = size.height / 22f
+        drawLine(Brush.horizontalGradient(listOf(Color.Transparent, gold), 0f, cx - 26 * s), Offset(0f, cy), Offset(cx - 26 * s, cy), 1f)
+        drawLine(Brush.horizontalGradient(listOf(gold, Color.Transparent), cx + 26 * s, size.width), Offset(cx + 26 * s, cy), Offset(size.width, cy), 1f)
+        val petal = Path().apply { moveTo(cx, cy - 10 * s); quadraticTo(cx + 7 * s, cy - 2 * s, cx, cy + 9 * s); quadraticTo(cx - 7 * s, cy - 2 * s, cx, cy - 10 * s); close() }
+        drawPath(petal, gold, alpha = 0.3f); drawPath(petal, gold, style = Stroke(1.2f))
+        val l = Path().apply { moveTo(cx, cy + 9 * s); quadraticTo(cx - 12 * s, cy + 4 * s, cx - 18 * s, cy - 6 * s); quadraticTo(cx - 8 * s, cy - 2 * s, cx, cy + 9 * s) }
+        val r = Path().apply { moveTo(cx, cy + 9 * s); quadraticTo(cx + 12 * s, cy + 4 * s, cx + 18 * s, cy - 6 * s); quadraticTo(cx + 8 * s, cy - 2 * s, cx, cy + 9 * s) }
+        drawPath(l, gold, style = Stroke(1.1f)); drawPath(r, gold, style = Stroke(1.1f))
+        sparkle(Offset(cx - 34 * s, cy), 3 * s, gold); sparkle(Offset(cx + 34 * s, cy), 3 * s, gold)
+    }
 }
 
 /** Compact pill for concepts such as Transit, Retrograde or Supportive. */
@@ -109,6 +162,9 @@ fun Pill(text: String, color: Color = Astra.colors.lavender, filled: Boolean = f
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        val gold = if (Astra.colors.dark) Gold else GoldDeep
+        Canvas(Modifier.size(14.dp).clearAndSetSemantics { }) { sparkle(Offset(size.width / 2, size.height / 2), size.minDimension / 2, gold) }
+        Box(Modifier.width(8.dp))
         Text(text, style = Astra.type.heading, color = Astra.colors.text, modifier = Modifier.weight(1f))
         trailing()
     }
@@ -134,18 +190,9 @@ fun Notice(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int =
     }
 }
 
-/** Subtle star field for atmospheric surfaces (onboarding, Today header). Static: no motion. */
+/** Star field for atmospheric surfaces: twinkling stars, glimmers and a passing shooting star (still when motion is reduced). */
 @Composable
-fun Starfield(modifier: Modifier = Modifier, count: Int = 70, seed: Int = 7) {
-    val c = Astra.colors
-    val stars = remember(seed, count) { val r = Random(seed); List(count) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat()) } }
-    Canvas(modifier) {
-        stars.forEach { (x, y, s) ->
-            drawCircle(if (s > 0.85f) c.gold else c.text, radius = 0.6f + s * 1.4f, center = Offset(x * size.width, y * size.height),
-                alpha = if (c.dark) 0.25f + s * 0.45f else 0.12f + s * 0.2f)
-        }
-    }
-}
+fun Starfield(modifier: Modifier = Modifier, count: Int = 70, seed: Int = 7) = CosmicBackground(modifier, seed = seed, stars = count, nebula = false)
 
 @Composable
 fun KeyValue(key: String, value: String, modifier: Modifier = Modifier) {

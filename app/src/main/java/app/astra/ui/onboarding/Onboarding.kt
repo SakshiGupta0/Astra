@@ -62,6 +62,7 @@ import app.astra.ui.components.Starfield
 import app.astra.ui.theme.Astra
 import java.time.LocalDate
 import java.time.LocalTime
+import androidx.compose.foundation.layout.widthIn
 
 private enum class Step { WELCOME, NAME, DATE, TIME, PLACE, NOW, STORY, LANGUAGE }
 
@@ -137,7 +138,7 @@ fun OnboardingFlow(initial: Profile?, onDone: (Profile, StoryAbout?) -> Unit, on
 
     Box(Modifier.fillMaxSize().background(c.background)) {
         if (step == Step.WELCOME) { Welcome { OnboardingClock.start(); i++ }; return@Box }
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+        Column(Modifier.align(Alignment.TopCenter).widthIn(max = 600.dp).fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (i > 0 || onCancel != null) IconButton(onClick = { back() }) { AIcon(R.drawable.ic_chevron_left, "Back") } else Spacer(Modifier.size(48.dp))
                 val visible = steps.filter { it != Step.WELCOME }
@@ -201,7 +202,10 @@ private fun Welcome(onStart: () -> Unit) {
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
         ) {
-            Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(132.dp))
+            Box(contentAlignment = Alignment.Center) {
+                app.astra.ui.theme.Mandala(Modifier.size(260.dp), alpha = 0.55f)
+                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(132.dp))
+            }
             Text("ASTRA", style = Astra.type.display, color = c.accent)
             Spacer(Modifier.height(8.dp))
             Text("Tell your story once.", style = Astra.type.heading, color = c.text, textAlign = TextAlign.Center)

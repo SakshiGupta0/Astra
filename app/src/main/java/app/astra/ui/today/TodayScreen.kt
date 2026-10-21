@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import app.astra.R
 import app.astra.core.Copy
 import app.astra.core.Graha
+import app.astra.core.ordinal
 import app.astra.core.NowPosition
 import app.astra.core.Panchang
 import app.astra.core.Timeline
@@ -42,6 +43,12 @@ import app.astra.ui.components.Notice
 import app.astra.ui.components.Pill
 import app.astra.ui.components.SectionTitle
 import app.astra.ui.components.Starfield
+import app.astra.ui.components.Overline
+import app.astra.ui.components.LotusDivider
+import app.astra.ui.theme.CosmicBackground
+import app.astra.ui.theme.Mandala
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.graphicsLayer
 import app.astra.ui.theme.Astra
 import app.astra.ui.tracker.toneColor
 import app.astra.ui.tracker.toneGlyph
@@ -69,17 +76,20 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
     val panchang = pCalc.valueOrNull
     val positions = posCalc.valueOrNull
     val timeline = tlCalc.valueOrNull
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val wide = maxWidth >= 840.dp
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Box(Modifier.fillMaxWidth().height(150.dp).background(c.backgroundAlt)) {
-            Starfield(Modifier.fillMaxSize(), count = 45, seed = session.today.dayOfYear)
-            Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp)) {
+        CosmicBackground(Modifier.fillMaxWidth().height(if (wide) 260.dp else 220.dp), seed = session.today.dayOfYear, stars = 55) {
+            Mandala(Modifier.size(if (wide) 460.dp else 340.dp).align(Alignment.TopEnd).graphicsLayer { translationX = 120.dp.toPx(); translationY = -120.dp.toPx() }, alpha = 0.4f)
+            Column(Modifier.align(Alignment.BottomStart).statusBarsPadding().padding(horizontal = 20.dp, vertical = 22.dp)) {
+                Overline("${session.today.dayOfWeek.name} · ${panchang?.tithi?.value?.label ?: Fmt.date(session.at, z)}")
                 val name = session.profile.name.ifBlank { null }
-                Text(if (name != null) "Namaste, $name" else "Namaste", style = Astra.type.title, color = c.text, modifier = Modifier.testTag("greeting"))
-                Text("${session.today.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}, ${Fmt.date(session.at, z)} · ${session.profile.currentPlace.label.substringBefore(',')}",
+                Text(if (name != null) "Namaste, $name" else "Namaste", style = Astra.type.hero, color = c.text, modifier = Modifier.testTag("greeting").padding(top = 4.dp))
+                Text("${Fmt.date(session.at, z)} · ${session.profile.currentPlace.label.substringBefore(',')}" + (positions?.firstOrNull { it.graha == Graha.MOON }?.let { " · Moon in your ${ordinal(it.houseFromMoon)}" } ?: ""),
                     style = Astra.type.label, color = c.textSecondary)
             }
         }
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val leftBlocks: @Composable () -> Unit = {
             (pCalc.error ?: posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
             val story = app.story.story
             val pending = StoryRules.pendingCheckins(story)
@@ -88,8 +98,8 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
             (pending.firstOrNull() ?: followUp)?.let { th -> CheckinCard(app, session, th, onOpenTracker, onResolved = { followUp = th }) }
             if (pending.isEmpty() && StoryRules.surveyDue(story, session.today)) SurveyCard(app, session)
             // Your day
-            AstraCard(Modifier.testTag("yourDay")) {
-                Text("Your day", style = Astra.type.heading, color = c.text)
+            AstraCard(Modifier.testTag("yourDay"), glint = true) {
+                Overline("Your day")
                 val moon = positions?.firstOrNull { it.graha == Graha.MOON }
                 aiLine?.let { (line, storyCount) ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -112,8 +122,9 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
                 Text(Copy.NOT_PREDICTION, style = Astra.type.meta, color = c.textSecondary)
             }
 
-            DailyCard(app, session, onOpenTarot)
+            if (!wide) DailyCard(app, session, onOpenTarot)
 
+            LotusDivider()
             SectionTitle("Panchang")
             val p = panchang
             val sunrise = p?.sunrise; val sunset = p?.sunset
@@ -141,6 +152,11 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
                 }
             }
         }
+        if (wide) Row(Modifier.padding(horizontal = 32.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(Modifier.weight(1.1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { leftBlocks() }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { DailyCard(app, session, onOpenTarot) }
+        } else Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { leftBlocks() }
+    }
     }
 }
 

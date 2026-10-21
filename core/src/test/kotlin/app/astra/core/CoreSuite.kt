@@ -40,6 +40,7 @@ class CoreSuite(private val fixtures: File) {
         notifications()
         tarot()
         loops()
+        oracle()
         println("\nASTRA core ${CoreVersion.CORE} | ${CoreVersion.CALC}")
         notes.forEach { println("  note: $it") }
         println("PASSED $passed  FAILED ${failures.size}")
@@ -444,6 +445,12 @@ class CoreSuite(private val fixtures: File) {
         val back = DrawCodec.decode(DrawCodec.encode(three))
         check("tarot: draw round-trips exactly", back == three)
         check("tarot: corrupt draw rejected", DrawCodec.decode("{\"id\":\"x\",\"spread\":\"ONE\",\"cards\":[{\"id\":\"nope\",\"rev\":false,\"pos\":\"a\"}],\"deck\":\"d\",\"at\":\"2026-01-01T00:00:00Z\"}") == null)
+        // The fan: picks map to the shuffled positions the user tapped
+        val sh = Tarot.shuffle(java.util.Random(9))
+        check("tarot: shuffle is the whole deck", sh.size == 78 && sh.map { it.cardId }.toSet().size == 78)
+        val fp = Tarot.fromPicks(sh, listOf(5, 0, 20), Spread.THREE, "q")
+        check("tarot: picked cards in tap order", fp.cards.map { it.cardId } == listOf(sh[5].cardId, sh[0].cardId, sh[20].cardId) && fp.cards[0].reversed == sh[5].reversed && fp.cards.map { it.position } == Spread.THREE.positions)
+        check("tarot: picks must be distinct and complete", runCatching { Tarot.fromPicks(sh, listOf(1, 1, 2), Spread.THREE) }.isFailure && runCatching { Tarot.fromPicks(sh, listOf(1), Spread.THREE) }.isFailure)
         // Daily card: one per day, kept for the day, new the next day
         val day = LocalDate.of(2026, 10, 21)
         val d1 = Tarot.daily(null, day)
@@ -519,6 +526,32 @@ class CoreSuite(private val fixtures: File) {
         var y = java.time.YearMonth.of(1990, 1); val evTexts = ArrayList<String>()
         while (y.isBefore(java.time.YearMonth.of(2030, 1))) { evTexts += ChartAt.ofMonth(chart, y, z).lines(); y = y.plusMonths(7) }
         check("events: no banned words in life-event lines", evTexts.none { evBanned.containsMatchIn(it) })
+    }
+
+    // ---- 16. Oracle decks ----------------------------------------------------------------------
+    private fun oracle() {
+        val counts = mapOf(OracleDeck.YES_NO to 12, OracleDeck.GUIDANCE to 44, OracleDeck.VIBE to 24, OracleDeck.NAKSHATRA to 27)
+        for ((d, n) in counts) check("oracle: ${d.title} has $n cards", Oracle.cards(d).size == n) { "${Oracle.cards(d).size}" }
+        check("oracle: unique ids", Oracle.deck.map { it.id }.toSet().size == Oracle.deck.size)
+        check("oracle: every card has a title and a line", Oracle.deck.all { it.title.isNotBlank() && it.line.isNotBlank() })
+        check("oracle: yes/no has every leaning", Oracle.cards(OracleDeck.YES_NO).map { it.leaning }.toSet() == Leaning.entries.toSet())
+        check("oracle: vibe cards have two colours and an element", Oracle.cards(OracleDeck.VIBE).all { it.colors.size == 2 && it.element != null })
+        check("oracle: nakshatra cards in order with lords", Oracle.cards(OracleDeck.NAKSHATRA).mapIndexed { i, c -> c.nakshatra == Nakshatra.entries[i] && c.deity.isNotBlank() }.all { it })
+        check("oracle: Rohini span", Oracle.span(Nakshatra.ROHINI) == "Vrishabha 10°00′ – Vrishabha 23°20′") { Oracle.span(Nakshatra.ROHINI) }
+        check("oracle: Krittika crosses signs", Oracle.span(Nakshatra.KRITTIKA).startsWith("Mesha 26°40′ – Vrishabha")) { Oracle.span(Nakshatra.KRITTIKA) }
+        check("oracle: star patterns stable", Oracle.starPattern(Nakshatra.KRITTIKA) == Oracle.starPattern(Nakshatra.KRITTIKA) && Oracle.starPattern(Nakshatra.KRITTIKA).size == 6)
+        val banned = Regex("\\b(good|bad|unlucky|lucky|danger|dangerous|dosha|curse|cursed|doom|warning|evil|death)\\b", RegexOption.IGNORE_CASE)
+        val bad = Oracle.allText().filter { banned.containsMatchIn(it) }
+        check("oracle: no banned words in ${Oracle.allText().size} strings", bad.isEmpty()) { bad.take(3).toString() }
+        val rng = java.util.Random(5); val seen = HashSet<String>()
+        repeat(3000) { seen += Oracle.draw(OracleDeck.GUIDANCE, rng = rng).cardId }
+        check("oracle: every guidance card can be drawn", seen.size == 44)
+        val day = LocalDate.of(2026, 10, 21)
+        val g = Oracle.dailyGuidance(null, day)
+        check("oracle: daily guidance kept for the day, new tomorrow", Oracle.dailyGuidance(g, day) === g && Oracle.dailyGuidance(g, day.plusDays(1)).day == day.plusDays(1))
+        val vd = Oracle.draw(OracleDeck.VIBE, "how's today?", Instant.parse("2026-10-21T10:00:00Z"))
+        check("oracle: draw round-trips", OracleCodec.decode(OracleCodec.encode(vd)) == vd)
+        check("oracle: bad card rejected", OracleCodec.decode("{\"id\":\"a\",\"deck\":\"VIBE\",\"card\":\"zz99\",\"at\":\"2026-01-01T00:00:00Z\"}") == null)
     }
 }
 

@@ -36,6 +36,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.MethodSorters
 import java.io.File
 import app.astra.ui.tarot.TarotState
+import app.astra.ui.theme.MysticMotion
 
 @RunWith(AndroidJUnit4::class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -53,6 +54,7 @@ class SmokeTest {
         rule.runOnUiThread {
             app.deleteEverything(); app.backend = NoBackend; AskState.resetForTests()
             TarotState.resetForTests(); app.analytics.setEnabled(false)
+            MysticMotion.enabled = false
         }
         rule.waitForIdle()
     }
@@ -248,6 +250,14 @@ class SmokeTest {
         rule.onNodeWithTag("tarotQuestion").performTextInput("What do I need to see about the job offer?")
         shot("80_tarot_new")
         rule.onNodeWithTag("drawCards").performClick()
+        waitTag("shuffling")
+        shot("80b_tarot_shuffling")
+        waitTag("fan", 20_000)
+        shot("81a_tarot_fan")
+        rule.onNodeWithTag("fan4").performClick()
+        rule.onNodeWithTag("fan10").performClick()
+        shot("81b_tarot_two_chosen")
+        rule.onNodeWithTag("fan16").performClick()
         waitTag("card0")
         shot("81_tarot_face_down")
         rule.onNodeWithTag("card0").performClick()
@@ -313,8 +323,12 @@ class SmokeTest {
         waitTag("dailyCard").performScrollTo()
         shot("100_daily_card_down")
         rule.onNodeWithTag("dailyCardFace").performClick()
-        waitTag("askDailyCard").assertIsDisplayed()
+        rule.onNodeWithTag("guidanceCardFace").performClick()
+        waitTag("guidanceText")
+        rule.onNodeWithTag("dailyCard").performScrollTo()
+        waitTag("askDailyCard")
         shot("101_daily_card_up")
+        assertTrue(app.draws.guidance!!.day == java.time.LocalDate.now())
         val card = app.draws.daily!!
         assertTrue(card.day == java.time.LocalDate.now() && card.cards.size == 1)
         rule.onNodeWithTag("askDailyCard").performClick()
@@ -336,5 +350,22 @@ class SmokeTest {
         rule.onNodeWithText("Delete your account?").assertIsDisplayed()
         shot("104_delete_account_confirm")
         rule.onNodeWithText("Cancel").performClick()
+    }
+
+    @Test fun l_oracleDecks() {
+        onboard("I know the exact time")
+        waitTag("whereYouAre")
+        rule.onNodeWithTag("tab_TAROT").performClick()
+        for (deck in listOf("YES_NO", "GUIDANCE", "VIBE", "NAKSHATRA")) {
+            rule.onNodeWithTag("deck_$deck").performScrollTo().performClick()
+            waitTag("drawOracle").performClick()
+            waitTag("oracleCard").performClick()
+            waitTag("oracleMeaning")
+            rule.onNodeWithTag("oracleCard").performScrollTo()
+            shot("110_oracle_${deck.lowercase()}")
+            assertTrue(TarotState.oracle!!.deck.name == deck)
+        }
+        rule.onNodeWithTag("deck_CLASSIC").performScrollTo().performClick()
+        waitTag("tarotIntro")
     }
 }

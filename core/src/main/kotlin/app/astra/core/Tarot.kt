@@ -178,6 +178,20 @@ object Tarot {
         return TarotDraw(StoryRules.newId(), spread, cards, DECK_VERSION, at, StoryRules.clip(question), day)
     }
 
+    /** The whole deck, securely shuffled, each card upright or reversed: what the fan in the reading room shows. */
+    fun shuffle(rng: Random = secure): List<DrawnCard> {
+        val order = deck.indices.toMutableList()
+        for (i in order.size - 1 downTo 1) { val j = rng.nextInt(i + 1); val t = order[i]; order[i] = order[j]; order[j] = t }
+        return order.map { DrawnCard(deck[it].id, rng.nextDouble() < REVERSED_CHANCE, "") }
+    }
+
+    /** The cards at the fan positions the user tapped, in tap order, placed into the spread's positions. */
+    fun fromPicks(shuffled: List<DrawnCard>, picks: List<Int>, spread: Spread, question: String = "", at: Instant = Instant.now()): TarotDraw {
+        require(picks.size == spread.positions.size && picks.toSet().size == picks.size && picks.all { it in shuffled.indices }) { "Pick ${spread.positions.size} different cards" }
+        val cards = picks.mapIndexed { k, p -> shuffled[p].copy(position = spread.positions[k]) }
+        return TarotDraw(StoryRules.newId(), spread, cards, DECK_VERSION, at, StoryRules.clip(question))
+    }
+
     /** One card per calendar day. Returns the saved card for [day] if there is one. */
     fun daily(existing: TarotDraw?, day: LocalDate, at: Instant = Instant.now(), rng: Random = secure): TarotDraw =
         if (existing != null && existing.spread == Spread.DAILY && existing.day == day) existing

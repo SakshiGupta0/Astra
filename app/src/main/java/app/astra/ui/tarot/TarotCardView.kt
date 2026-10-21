@@ -1,94 +1,99 @@
-// A tarot card from astra-deck-1: original art from TarotArt, with the numeral and name set in the card's own bands.
+// A classic tarot card (Pamela Colman Smith, 1909) in the ASTRA frame: dark mat, gold rule, lavender hairline,
+// a slow gold glint and corner glimmers. Face down shows ASTRA's yantra back. Reversed cards turn the whole card.
 package app.astra.ui.tarot
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.astra.core.Arcana
 import app.astra.core.TarotCard
-import app.astra.ui.theme.Inter
-import app.astra.ui.theme.Playfair
-
-private val ROMAN = listOf("0", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI")
-
-fun cardNumeral(c: TarotCard): String = if (c.arcana == Arcana.MAJOR) ROMAN[c.number] else when (c.number) {
-    1 -> "ACE"; 11 -> "PAGE"; 12 -> "KNIGHT"; 13 -> "QUEEN"; 14 -> "KING"; else -> ROMAN[c.number]
-}
-
-/** True when the phone asks for reduced motion (animator duration scale 0). */
-@Composable
-fun reducedMotion(): Boolean {
-    val ctx = LocalContext.current
-    return runCatching { android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
-}
+import app.astra.ui.theme.Gold
+import app.astra.ui.theme.GoldLight
+import app.astra.ui.theme.mysticClock
+import app.astra.ui.theme.ornate
+import app.astra.ui.theme.reducedMotion
+import app.astra.ui.theme.sparkle
 
 /**
- * A card at [width]. Face down shows the ASTRA back. Reversed cards turn the art upside down; the name stays readable.
- * The flip is a short turn on the vertical axis, skipped when the phone asks for reduced motion.
+ * A card at [width]. The flip is a 3D turn on its edge (skipped with reduced motion); [glow] lifts a chosen card.
  */
 @Composable
-fun TarotCardView(card: TarotCard?, reversed: Boolean, faceUp: Boolean, width: Dp, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+fun TarotCardView(card: TarotCard?, reversed: Boolean, faceUp: Boolean, width: Dp, modifier: Modifier = Modifier, glow: Boolean = false, onClick: (() -> Unit)? = null) {
     val still = reducedMotion()
-    val turn by animateFloatAsState(if (faceUp) 180f else 0f, if (still) tween(0) else tween(450), label = "flip")
+    val turn by animateFloatAsState(if (faceUp) 180f else 0f, if (still) tween(0) else tween(650), label = "flip")
+    val lift by animateFloatAsState(if (glow) 1f else 0f, if (still) tween(0) else tween(400), label = "lift")
     val showFace = turn > 90f && card != null
     val label = when {
         card == null || !faceUp -> "Face-down card"
         else -> card.name + if (reversed) ", reversed" else ""
     }
+    val radius = width * 0.07f
     Box(
-        modifier.width(width).aspectRatio(140f / 240f)
-            .graphicsLayer { rotationY = turn; cameraDistance = 12f * density }
+        modifier.width(width).aspectRatio(TarotArt.ASPECT)
+            .graphicsLayer { rotationY = turn; cameraDistance = 14f * density; translationY = -lift * 14.dp.toPx() }
+            .shadow((8 + 14 * lift).dp, RoundedCornerShape(radius), ambientColor = Color.Black, spotColor = if (lift > 0f) Gold else Color.Black)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = label }
     ) {
-        if (!showFace) Image(painterResource(TarotArt.BACK), null, Modifier.fillMaxSize())
-        else Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) { CardFace(card!!, reversed) }
+        if (!showFace) Image(painterResource(TarotArt.BACK), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        else Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f; rotationZ = if (reversed) 180f else 0f }) { CardFace(card!!, radius, width) }
+        if (lift > 0f) Box(Modifier.fillMaxSize().ornate(radius, strong = true))
     }
 }
 
 @Composable
-private fun CardFace(card: TarotCard, reversed: Boolean) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val w = maxWidth
-        val h = maxHeight
-        Image(painterResource(TarotArt.of(card.id)), null, Modifier.fillMaxSize().then(if (reversed) Modifier.rotate(180f) else Modifier))
-        val gold = Color(0xFFF7D794)
-        val moon = Color(0xFFF5F3FF)
-        // Bands left clear in the art: numeral around y 12-32 of 240, name around y 204-228.
-        Text(cardNumeral(card), Modifier.fillMaxWidth().offset(y = h * (13f / 240f)), textAlign = TextAlign.Center, maxLines = 1,
-            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Medium, fontSize = (w.value * 0.072f).sp, letterSpacing = (w.value * 0.008f).sp, color = gold))
-        Text(card.name, Modifier.fillMaxWidth().offset(y = h * (206f / 240f)), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            style = TextStyle(fontFamily = Playfair, fontWeight = FontWeight.Medium, fontSize = (w.value * (if (card.name.length > 16) 0.078f else 0.09f)).sp, color = moon))
+private fun CardFace(card: TarotCard, radius: Dp, width: Dp) {
+    val glint by mysticClock(8_000, still = 2f, label = "cardGlint")
+    val mat = width * 0.045f
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(radius))
+            .background(Brush.linearGradient(listOf(Color(0xFF231A55), Color(0xFF0D0A2A))))
+            .ornate(radius, strong = true)
+            .padding(mat)
+    ) {
+        Image(painterResource(TarotArt.of(card.id)), null,
+            Modifier.fillMaxSize().clip(RoundedCornerShape(radius * 0.45f))
+                .drawWithContent {
+                    drawContent()
+                    if (glint < 0.25f) {
+                        val p = glint / 0.25f
+                        val x = size.width * (p * 1.6f - 0.3f)
+                        drawRect(Brush.linearGradient(listOf(Color.Transparent, GoldLight.copy(alpha = 0.38f), Color.Transparent),
+                            Offset(x - size.width * 0.25f, 0f), Offset(x + size.width * 0.25f, size.height * 0.4f)))
+                        sparkle(Offset(x, size.height * 0.2f + p * size.height * 0.5f), size.width * 0.05f, GoldLight, (1f - kotlin.math.abs(p - 0.5f) * 2f).coerceIn(0f, 1f))
+                    }
+                },
+            contentScale = ContentScale.FillBounds)
     }
 }
 
 /** Small static card for lists (saved readings). */
 @Composable
-fun MiniCard(card: TarotCard, reversed: Boolean, width: Dp = 44.dp) = TarotCardView(card, reversed, faceUp = true, width = width)
+fun MiniCard(card: TarotCard, reversed: Boolean, width: Dp = 44.dp) =
+    Box(Modifier.width(width).aspectRatio(TarotArt.ASPECT).rotate(if (reversed) 180f else 0f).clip(RoundedCornerShape(4.dp))) {
+        Image(painterResource(TarotArt.of(card.id)), card.name, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+    }

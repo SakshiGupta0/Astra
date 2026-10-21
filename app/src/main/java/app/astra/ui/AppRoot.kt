@@ -1,5 +1,21 @@
 package app.astra.ui
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import app.astra.ui.theme.CosmicBackground
+import app.astra.ui.theme.Gold
+import app.astra.ui.theme.Mandala
+
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -99,30 +115,55 @@ private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: ()
     }
     LaunchedEffect(tab) { app.analytics.screen = tab.name.lowercase() }
     val c = Astra.colors
-    Scaffold(
-        containerColor = c.background,
-        bottomBar = {
-            NavigationBar(containerColor = c.backgroundAlt, tonalElevation = 0.dp) {
-                Tab.entries.forEach { t ->
-                    NavigationBarItem(
-                        selected = tab == t, onClick = { tab = t },
-                        icon = { AIcon(t.icon, null, tint = if (tab == t) c.accent else c.textSecondary) },
-                        label = { Text(t.label, style = Astra.type.meta) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = c.gold.copy(alpha = 0.16f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
-                        modifier = Modifier.testTag("tab_${t.name}")
-                    )
+    val content: @Composable () -> Unit = {
+        // Glowing cross-fade between tabs (no sliding); the sky stays still behind.
+        androidx.compose.animation.Crossfade(targetState = tab, animationSpec = androidx.compose.animation.core.tween(380), label = "tabs") { t ->
+            Box(Modifier.fillMaxSize()) {
+                when (t) {
+                    Tab.TODAY -> TodayScreen(app, session, onOpenTarot = { tab = Tab.TAROT }, onOpenTracker = { tab = Tab.TRACKER })
+                    Tab.TRACKER -> TrackerScreen(app, session, onAsk = { q -> AskState.draft = q; tab = Tab.ASK })
+                    Tab.TAROT -> TarotScreen(app, session)
+                    Tab.ASK -> AskScreen(app, session, onOpenStory = { tab = Tab.ME })
+                    Tab.ME -> ProfileScreen(app, session, onEdit)
                 }
             }
         }
-    ) { pad ->
-        Box(Modifier.fillMaxSize().background(c.background).padding(pad)) {
-            when (tab) {
-                Tab.TODAY -> TodayScreen(app, session, onOpenTarot = { tab = Tab.TAROT }, onOpenTracker = { tab = Tab.TRACKER })
-                Tab.TRACKER -> TrackerScreen(app, session, onAsk = { q -> AskState.draft = q; tab = Tab.ASK })
-                Tab.TAROT -> TarotScreen(app, session)
-                Tab.ASK -> AskScreen(app, session, onOpenStory = { tab = Tab.ME })
-                Tab.ME -> ProfileScreen(app, session, onEdit)
-            }
+    }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(c.background)) {
+        val rail = maxWidth >= 600.dp
+        CosmicBackground(Modifier.fillMaxSize(), seed = 3, stars = if (rail) 140 else 90, glimmers = if (rail) 10 else 6) {
+            if (rail) Row(Modifier.fillMaxSize()) {
+                NavigationRail(containerColor = c.backgroundAlt.copy(alpha = 0.85f), modifier = Modifier.fillMaxHeight().statusBarsPadding(),
+                    header = { Mandala(Modifier.size(44.dp).padding(top = 8.dp), alpha = 0.9f) }) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+                    Tab.entries.forEach { t ->
+                        NavigationRailItem(
+                            selected = tab == t, onClick = { tab = t },
+                            icon = { AIcon(t.icon, null, tint = if (tab == t) c.accent else c.textSecondary) },
+                            label = { Text(t.label, style = Astra.type.meta) },
+                            colors = NavigationRailItemDefaults.colors(indicatorColor = c.gold.copy(alpha = 0.18f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
+                            modifier = Modifier.padding(vertical = 6.dp).testTag("tab_${t.name}")
+                        )
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight().navigationBarsPadding()) { content() }
+            } else Scaffold(
+                containerColor = Color.Transparent,
+                bottomBar = {
+                    NavigationBar(containerColor = c.backgroundAlt.copy(alpha = 0.92f), tonalElevation = 0.dp,
+                        modifier = Modifier.drawBehind { drawLine(Gold.copy(alpha = 0.35f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }) {
+                        Tab.entries.forEach { t ->
+                            NavigationBarItem(
+                                selected = tab == t, onClick = { tab = t },
+                                icon = { AIcon(t.icon, null, tint = if (tab == t) c.accent else c.textSecondary) },
+                                label = { Text(t.label, style = Astra.type.meta) },
+                                colors = NavigationBarItemDefaults.colors(indicatorColor = c.gold.copy(alpha = 0.18f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
+                                modifier = Modifier.testTag("tab_${t.name}")
+                            )
+                        }
+                    }
+                }
+            ) { pad -> Box(Modifier.fillMaxSize().padding(pad)) { content() } }
         }
     }
 }
