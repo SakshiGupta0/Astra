@@ -1,5 +1,16 @@
 # Changelog
 
+## app 0.5.0 — Look & feel (21 Oct 2026)
+### Changed
+- **New mystical design**: a slowly moving night sky (twinkling stars, gold glimmers, the odd shooting star), yantra mandalas, gold-leaf buttons, ornate card frames with filigree and a passing glint, and Cinzel lettering for headings. The light theme is warm parchment. Motion is calm and stops when the phone's "Remove animations" setting is on.
+- **Classic tarot deck**: the cards are now the 1909 Pamela Colman Smith deck (public domain) in its original colours, inside an ASTRA frame. The ASTRA line-art deck is retired.
+- **Tarot ceremony**: the deck shuffles, fans out into 21 cards, and you choose your own (or tap "Choose for me"). Cards flip over with a glow.
+- **Tracker**: a turning sky wheel with every graha at its real position and your Moon at the centre.
+- **Phones, foldables and tablets**: a side rail replaces the bottom bar on wider screens; Today, Tracker and Tarot use two columns on tablets; reading text stays at a comfortable width. The birth chart no longer grows past a readable size.
+### Added
+- **Oracle decks** alongside the classic tarot: Yes / No (12), Guidance (44), Vibe (24) and Nakshatra (27, one for each lunar mansion). Oracle draws work offline.
+- **Today's guidance card** next to today's tarot card.
+
 ## app 0.4.0 — M4 (21 Oct 2026)
 ### Added
 - **Tarot tab** with ASTRA's own 78-card deck (original line-art designs in the design guide's palette; card back with the ASTRA mark). Ask a question or just draw; one card or three (What's behind it · Where you are · What can help). Secure shuffle, cards upright or reversed, saved before anything is read into them. Turn each card over yourself; tarot's meanings show instantly and offline.
