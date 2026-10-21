@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "359300157269",
+    "project_id": "astra-d00af",
+    "storage_bucket": "astra-d00af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:359300157269:android:7f5af3d37722b7264f29dc",
+        "android_client_info": {
+          "package_name": "app.astra"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "359300157269-d29sbaucetv7fsm9a2t96saqi84gouep.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.astra",
+            "certificate_hash": "f41af32c519645f8609627ac592418d0e3fc5a07"
+          }
+        },
+        {
+          "client_id": "359300157269-q42i0dledfb0ppcjnemsopick4er8dh8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYC_yLj9ytK8uxRix5pW6R6VnLtcVOVu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "359300157269-q42i0dledfb0ppcjnemsopick4er8dh8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
