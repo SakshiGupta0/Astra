@@ -38,7 +38,7 @@ import app.astra.ui.theme.Astra
 import java.time.YearMonth
 
 @Composable
-fun CheckinCard(app: App, session: Session, t: StoryThread, onOpenTracker: () -> Unit) {
+fun CheckinCard(app: App, session: Session, t: StoryThread, onOpenTracker: () -> Unit, onResolved: () -> Unit = {}) {
     val c = Astra.colors
     var text by remember(t.id) { mutableStateOf("") }
     var resolvedTitle by remember(t.id) { mutableStateOf<String?>(null) }
@@ -52,7 +52,7 @@ fun CheckinCard(app: App, session: Session, t: StoryThread, onOpenTracker: () ->
                 PrimaryButton("Resolved", {
                     val title = text.trim().ifBlank { t.title }
                     if (app.story.update { StoryRules.answerCheckin(it, t.id, CheckinAnswer.RESOLVED, text, session.today) }) {
-                        app.analytics.log("checkin_answered", "status" to "resolved"); resolvedTitle = title
+                        app.analytics.log("checkin_answered", "status" to "resolved"); resolvedTitle = title; onResolved()
                     }
                 }, Modifier.weight(1f).testTag("checkinResolved"))
                 SecondaryButton("Still open", {

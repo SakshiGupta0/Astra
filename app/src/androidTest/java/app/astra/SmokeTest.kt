@@ -60,7 +60,7 @@ class SmokeTest {
     private fun shot(name: String) {
         rule.waitForIdle()
         val dir = File(app.getExternalFilesDir(null), "shots").apply { mkdirs() }
-        val bmp = rule.onNode(isRoot()).captureToImage().asAndroidBitmap()
+        val bmp = rule.onAllNodes(isRoot()).onFirst().captureToImage().asAndroidBitmap()
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
@@ -273,7 +273,7 @@ class SmokeTest {
         rule.waitForIdle()
         val saved = app.readings.readings.first()
         assertTrue(saved.type == "cross" && saved.draw == drawn && saved.rating == 5)
-        rule.onNodeWithTag("tarotLibrary").performClick()
+        rule.onNodeWithTag("tarotLibrary").performScrollTo().performClick()
         waitTag("libraryList")
         rule.onNodeWithText("Cross-Reading").assertIsDisplayed()
         shot("86_library_with_cards")

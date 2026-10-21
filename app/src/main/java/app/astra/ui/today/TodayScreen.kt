@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +83,9 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
             (pCalc.error ?: posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
             val story = app.story.story
             val pending = StoryRules.pendingCheckins(story)
-            pending.firstOrNull()?.let { CheckinCard(app, session, it, onOpenTracker) }
+            // Keep a just-resolved check-in on screen so it can offer "Add life event".
+            var followUp by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<app.astra.core.StoryThread?>(null) }
+            (pending.firstOrNull() ?: followUp)?.let { th -> CheckinCard(app, session, th, onOpenTracker, onResolved = { followUp = th }) }
             if (pending.isEmpty() && StoryRules.surveyDue(story, session.today)) SurveyCard(app, session)
             // Your day
             AstraCard(Modifier.testTag("yourDay")) {
