@@ -117,6 +117,13 @@ private class Draft(p: Profile?) {
     }
 }
 
+/** Times first-run onboarding for the content-free onboarding_completed event (PRD target: under 3 minutes). */
+object OnboardingClock {
+    private var started = 0L
+    fun start() { started = System.currentTimeMillis() }
+    fun seconds(): Int = if (started == 0L) 0 else ((System.currentTimeMillis() - started) / 1000).toInt()
+}
+
 @Composable
 fun OnboardingFlow(initial: Profile?, onDone: (Profile, StoryAbout?) -> Unit, onCancel: (() -> Unit)? = null) {
     val draft = remember { Draft(initial) }
@@ -129,7 +136,7 @@ fun OnboardingFlow(initial: Profile?, onDone: (Profile, StoryAbout?) -> Unit, on
     BackHandler(enabled = i > 0 || onCancel != null) { back() }
 
     Box(Modifier.fillMaxSize().background(c.background)) {
-        if (step == Step.WELCOME) { Welcome { i++ }; return@Box }
+        if (step == Step.WELCOME) { Welcome { OnboardingClock.start(); i++ }; return@Box }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (i > 0 || onCancel != null) IconButton(onClick = { back() }) { AIcon(R.drawable.ic_chevron_left, "Back") } else Spacer(Modifier.size(48.dp))
@@ -186,6 +193,8 @@ private fun Title(title: String, sub: String) {
 @Composable
 private fun Welcome(onStart: () -> Unit) {
     val c = Astra.colors
+    var privacy by remember { mutableStateOf(false) }
+    if (privacy) { app.astra.ui.me.PrivacyNoticeScreen(onBack = { privacy = false }); return }
     Box(Modifier.fillMaxSize().background(c.background)) {
         Starfield(Modifier.fillMaxSize(), count = 90)
         Column(
@@ -204,7 +213,8 @@ private fun Welcome(onStart: () -> Unit) {
             Spacer(Modifier.height(40.dp))
             PrimaryButton("Get started", onStart, Modifier.fillMaxWidth().testTag("getStarted"))
             Spacer(Modifier.height(12.dp))
-            Text("No account needed to start.", style = Astra.type.meta, color = c.textSecondary)
+            Text("No account needed to start. For adults 18 and over.", style = Astra.type.meta, color = c.textSecondary)
+            app.astra.ui.components.TextLink("How ASTRA uses your data", { privacy = true }, Modifier.testTag("welcomePrivacy"))
         }
     }
 }

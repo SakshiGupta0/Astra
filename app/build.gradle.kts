@@ -11,6 +11,8 @@ val firebaseConfigured = file("google-services.json").exists()
 if (firebaseConfigured) apply(plugin = "com.google.gms.google-services")
 // Address of the AI server (Cloudflare Worker), written by the deploy workflow.
 val aiUrl = rootProject.file("ai-endpoint.txt").takeIf { it.exists() }?.readText()?.trim() ?: ""
+// Contact address printed in the privacy notice (optional; the notice falls back to "Send feedback").
+val contactEmail = rootProject.file("contact-email.txt").takeIf { it.exists() }?.readText()?.trim() ?: ""
 
 android {
     namespace = "app.astra"
@@ -20,11 +22,12 @@ android {
         applicationId = "app.astra"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.3.0"
+        versionCode = 3
+        versionName = "0.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "FIREBASE", firebaseConfigured.toString())
         buildConfigField("String", "AI_URL", "\"$aiUrl\"")
+        buildConfigField("String", "CONTACT_EMAIL", "\"$contactEmail\"")
     }
 
     // One fixed key for every build, so a new APK installs over the old one and keeps your data.
@@ -53,6 +56,8 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isReturnDefaultValues = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    // The privacy notice is shipped from the same file the AI server publishes at /privacy.
+    sourceSets["main"].assets.srcDirs("src/main/assets", "../docs/privacy")
 }
 
 dependencies {

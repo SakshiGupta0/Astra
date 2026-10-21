@@ -45,7 +45,7 @@ fun NotifySection(app: App) {
     val ctx = LocalContext.current
     val on = app.notify.enabled == true
     val p = app.notify.prefs
-    val enable = rememberEnableNotifications(app)
+    val enable = rememberEnableNotifications(app) { granted -> app.analytics.log("push_permission", "granted" to granted, "ask_point" to "settings") }
     fun save(next: NotifyPrefs) { app.notify.save(next); Notifications.schedule(ctx) }
     SectionTitle("Notifications")
     AstraCard(Modifier.testTag("notifyCard")) {
@@ -59,6 +59,7 @@ fun NotifySection(app: App) {
             })
             ToggleRow("Week ahead on Sundays", "Replaces the morning note that day", p.weekly, { save(p.copy(weekly = it)) })
             ToggleRow("Changes in your chart", "A week before and on the day. At most two a week.", p.events, { save(p.copy(events = it)) })
+            ToggleRow("Story check-ins", "A gentle follow-up on an open question in My Story. At most one a day.", p.checkins, { save(p.copy(checkins = it)) })
             if (p.events) ToggleRow("Include demanding periods", "Off by default. Only tells you when a demanding stretch begins.", p.demandingAlerts, { save(p.copy(demandingAlerts = it)) })
             Text("Quiet between 10 pm and 7 am.", style = Astra.type.meta, color = c.textSecondary)
         }

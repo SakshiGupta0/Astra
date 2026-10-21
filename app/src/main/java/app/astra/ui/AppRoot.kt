@@ -38,8 +38,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
-    TODAY("Today", R.drawable.ic_sun), TRACKER("Tracker", R.drawable.ic_orbit), ASK("Ask", R.drawable.ic_message_circle),
-    CHART("Chart", R.drawable.ic_compass), ME("Me", R.drawable.ic_user_round)
+    TODAY("Today", R.drawable.ic_sun), TRACKER("Tracker", R.drawable.ic_orbit), TAROT("Tarot", R.drawable.ic_layers),
+    ASK("Ask", R.drawable.ic_message_circle), ME("Me", R.drawable.ic_user_round)
 }
 
 @Composable
@@ -49,9 +49,14 @@ fun AppRoot(app: App, activity: MainActivity? = null) {
         var editing by remember { mutableStateOf(false) }
         when {
             profile == null -> OnboardingFlow(null, onDone = { p, about ->
-                if (app.profiles.save(p)) app.story.update { s ->
-                    val shown = s.copy(offersShown = maxOf(s.offersShown, 1))
-                    if (about != null) StoryRules.grant(shown.copy(about = about), "onboarding") else shown
+                if (app.profiles.save(p)) {
+                    app.story.update { s ->
+                        val shown = s.copy(offersShown = maxOf(s.offersShown, 1))
+                        if (about != null) StoryRules.grant(shown.copy(about = about), "onboarding") else shown
+                    }
+                    app.analytics.log("onboarding_completed", "birth_time_status" to p.timeStatus.name.lowercase(), "story_opt_in" to (about != null),
+                        "language" to p.language.name.lowercase(), "duration_s" to app.astra.ui.onboarding.OnboardingClock.seconds())
+                    if (about != null) app.analytics.log("story_item_added", "type" to "about", "source" to "user")
                 }
             })
             editing -> OnboardingFlow(profile, onDone = { p, _ -> if (app.profiles.save(p)) editing = false }, onCancel = { editing = false })
@@ -63,6 +68,12 @@ fun AppRoot(app: App, activity: MainActivity? = null) {
                     onPauseOrDispose { }
                 }
                 val session = remember(profile, day) { Session(profile) }
+                // Once per session: start a due check-in (at most one a day) and send queued usage events.
+                LaunchedEffect(session) {
+                    app.rollCheckins(session.today)
+                    app.analytics.log("app_open", "from_push" to (activity?.openedFromPush == true))
+                    app.analytics.flush()
+                }
                 // Keep the server's copy of the chart facts current (once per day / profile change).
                 LaunchedEffect(session, app.backend) {
                     if (app.backend.available || app.cloud.firebaseReady) runCatching {
@@ -83,6 +94,7 @@ private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: ()
     LaunchedEffect(requested) {
         requested?.let { name -> Tab.entries.firstOrNull { it.name == name }?.let { tab = it }; activity?.openTab?.value = null }
     }
+    LaunchedEffect(tab) { app.analytics.screen = tab.name.lowercase() }
     val c = Astra.colors
     Scaffold(
         containerColor = c.background,
@@ -102,10 +114,10 @@ private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: ()
     ) { pad ->
         Box(Modifier.fillMaxSize().background(c.background).padding(pad)) {
             when (tab) {
-                Tab.TODAY -> TodayScreen(app, session)
-                Tab.TRACKER -> TrackerScreen(app, session)
+                Tab.TODAY -> TodayScreen(app, session, onOpenTarot = { tab = Tab.TAROT }, onOpenTracker = { tab = Tab.TRACKER })
+                Tab.TRACKER -> TrackerScreen(app, session, onAsk = { q -> app.astra.ui.ask.AskState.draft = q; tab = Tab.ASK })
+                Tab.TAROT -> app.astra.ui.tarot.TarotScreen(app, session)
                 Tab.ASK -> AskScreen(app, session, onOpenStory = { tab = Tab.ME })
-                Tab.CHART -> ChartScreen(session)
                 Tab.ME -> ProfileScreen(app, session, onEdit)
             }
         }

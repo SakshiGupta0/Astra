@@ -13,17 +13,28 @@ import app.astra.ui.AppRoot
 class MainActivity : ComponentActivity() {
     /** Tab requested by a notification tap; consumed by AppRoot. */
     val openTab = mutableStateOf<String?>(null)
+    /** True when this launch came from tapping one of ASTRA's notifications. */
+    var openedFromPush = false
+        private set
+
+    private fun handlePush(intent: Intent?) {
+        val loop = intent?.getStringExtra(Notifications.EXTRA_LOOP) ?: return
+        openedFromPush = true
+        (application as App).analytics.log("push_opened", "loop" to loop)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         openTab.value = intent?.getStringExtra(Notifications.EXTRA_TAB)
+        if (savedInstanceState == null) handlePush(intent)
         setContent { AppRoot(application as App, this) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(Notifications.EXTRA_TAB)?.let { openTab.value = it }
+        handlePush(intent)
     }
 }

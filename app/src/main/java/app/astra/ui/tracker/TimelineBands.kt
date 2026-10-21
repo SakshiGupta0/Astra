@@ -52,13 +52,16 @@ import java.time.ZonedDateTime
 /** One tappable segment of a band. */
 data class BandItem(val row: Int, val start: Instant, val end: Instant, val label: String, val title: String, val lines: List<String>, val color: Color, val dashed: Boolean = false)
 
-private val ROWS = listOf("Dasha", "Tone", "Saturn", "Jupiter", "Rahu·Ketu", "Retro")
+private val BASE_ROWS = listOf("Dasha", "Tone", "Saturn", "Jupiter", "Rahu·Ketu", "Retro")
+/** Row index for life events from My Story, drawn as markers below the bands. */
+const val STORY_ROW = 6
 
 @Composable
-fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, modifier: Modifier = Modifier) {
+fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, modifier: Modifier = Modifier, extra: List<BandItem> = emptyList()) {
     val c = Astra.colors
     val z = session.zone
-    val items = remember(tl, c) { buildItems(tl, c.accent, c.lavender, c.supportive, c.mixed, c.demanding, c.textSecondary) }
+    val ROWS = if (extra.isNotEmpty()) BASE_ROWS + "My story" else BASE_ROWS
+    val items = remember(tl, c, extra) { buildItems(tl, c.accent, c.lavender, c.supportive, c.mixed, c.demanding, c.textSecondary) + extra }
     val months = remember(tl) {
         val out = ArrayList<Instant>()
         var m = ZonedDateTime.ofInstant(tl.from, z).withDayOfMonth(1).toLocalDate().atStartOfDay(z)
@@ -116,6 +119,14 @@ fun TimelineBands(session: Session, tl: Timeline, onSelect: (BandItem) -> Unit, 
 
 private fun BandItem.draw(s: DrawScope, x: (Instant) -> Float, hH: Float, rH: Float, m: TextMeasurer, style: TextStyle, visibleLeft: Float) = with(s) {
     val x0 = x(start); val x1 = x(end)
+    if (row == STORY_ROW) { // life event: a diamond marker with a faint line up through the bands
+        val cx = (x0 + x1) / 2; val cy = hH + row * rH + rH / 2; val r = rH * 0.22f
+        drawLine(color.copy(alpha = 0.35f), Offset(cx, hH), Offset(cx, cy - r), 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f)))
+        val path = androidx.compose.ui.graphics.Path().apply { moveTo(cx, cy - r); lineTo(cx + r, cy); lineTo(cx, cy + r); lineTo(cx - r, cy); close() }
+        drawPath(path, color)
+        drawLabel(m, label, style, Offset(cx + r + 4f, cy - 8f), 140f)
+        return@with
+    }
     val top = hH + row * rH + rH * 0.15f
     val h = rH * 0.7f
     val w = (x1 - x0 - 2f).coerceAtLeast(2f)

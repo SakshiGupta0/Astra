@@ -20,7 +20,7 @@ class NotifyRepository(context: Context) {
 
     private fun load() = NotifyPrefs(
         daily = sp.getBoolean("daily", true), weekly = sp.getBoolean("weekly", true), events = sp.getBoolean("events", true),
-        demandingAlerts = sp.getBoolean("demanding", false),
+        demandingAlerts = sp.getBoolean("demanding", false), checkins = sp.getBoolean("checkins", true),
         time = runCatching { LocalTime.parse(sp.getString("time", "07:30")) }.getOrDefault(LocalTime.of(7, 30))
     )
 
@@ -31,7 +31,7 @@ class NotifyRepository(context: Context) {
 
     fun save(p: NotifyPrefs) {
         sp.edit().putBoolean("daily", p.daily).putBoolean("weekly", p.weekly).putBoolean("events", p.events)
-            .putBoolean("demanding", p.demandingAlerts).putString("time", p.time.toString()).apply()
+            .putBoolean("demanding", p.demandingAlerts).putBoolean("checkins", p.checkins).putString("time", p.time.toString()).apply()
         prefs = p
     }
 

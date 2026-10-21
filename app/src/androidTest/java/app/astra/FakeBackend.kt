@@ -24,4 +24,25 @@ class FakeBackend : AskBackend {
             used, 14, "fake", "interp-test", "ok")
     }
     override suspend fun todayLine() = AskResult("A calm day to take one small step on what matters to you.", emptyList(), 0, "fake", "interp-test", "ok")
+
+    val draws = mutableListOf<app.astra.core.TarotDraw>()
+    val readings = mutableListOf<Pair<String, String>>() // mode to drawId
+    var crossLeft = 2
+    override suspend fun syncDraw(draw: app.astra.core.TarotDraw) { draws += draw }
+    override suspend fun tarot(drawId: String, question: String, storyIds: List<String>): AskResult {
+        readings += "tarot" to drawId
+        val d = draws.last { it.id == drawId }
+        return AskResult("In tarot, " + d.cards.joinToString(" ") { "${it.card.name} in \"${it.position}\" speaks of ${it.meaning}." } +
+            " Something to reflect on: what feels most true for you right now?", emptyList(), 13, "fake", "interp-test", "ok", "tarot")
+    }
+    override suspend fun cross(drawId: String, question: String, storyIds: List<String>): AskResult {
+        readings += "cross" to drawId
+        val d = draws.last { it.id == drawId }
+        crossLeft--
+        return AskResult("Your chart: You are in the Venus mahadasha, and the period tone is mixed.\n" +
+            "Your cards: In tarot, " + d.cards.joinToString(", ") { it.card.name } + ".\n" +
+            "Where they meet: Both point to patient, steady effort.\n" +
+            "Where they differ: The chart describes a long period; the cards speak to how you feel now.\n" +
+            "Questions to sit with: What would steady effort look like this month?", emptyList(), crossLeft, "fake", "interp-test", "ok", "cross")
+    }
 }

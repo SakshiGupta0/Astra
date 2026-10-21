@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import app.astra.ui.components.TextLink
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astra.R
@@ -60,8 +61,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TrackerScreen(app: App, session: Session) {
+fun TrackerScreen(app: App, session: Session, onAsk: (String) -> Unit = {}) {
     var tab by rememberSaveable { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(tab) { app.analytics.log("tracker_viewed", "tab" to listOf("now", "timeline", "chart")[tab]) }
     val posCalc by rememberCalc(session) { session.positions }
     val tlCalc by rememberCalc(session) { session.timelineNow }
     val positions = posCalc.valueOrNull
@@ -71,10 +73,14 @@ fun TrackerScreen(app: App, session: Session) {
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
             Text("Graha Tracker", style = Astra.type.title, color = c.text)
             Text("${Fmt.date(session.at, session.zone)} · ${session.profile.currentPlace.label.substringBefore(',')}", style = Astra.type.meta, color = c.textSecondary)
-            Segmented(listOf("Now", "Timeline"), tab, { tab = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp))
+            Segmented(listOf("Now", "Timeline", "Chart"), tab, { tab = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("trackerTabs"))
             (posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
         }
-        if (tab == 0) NowTab(app, session, positions, timeline) else TimelineTab(session, timeline)
+        when (tab) {
+            0 -> NowTab(app, session, positions, timeline)
+            1 -> TimelineTab(app, session, timeline, onAsk)
+            else -> app.astra.ui.chart.ChartScreen(session, embedded = true)
+        }
     }
 }
 
@@ -166,14 +172,30 @@ private fun PlanetRow(p: NowPosition, session: Session) {
 }
 
 @Composable
-private fun TimelineTab(session: Session, timeline: Timeline?) {
+private fun TimelineTab(app: App, session: Session, timeline: Timeline?, onAsk: (String) -> Unit) {
     if (timeline == null) { Loading("Plotting 3 years of transits…"); return }
     var showMinor by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf<BandItem?>(null) }
     val c = Astra.colors
     val z = session.zone
+    // Life events from My Story, with what the chart showed that month (same rules as the live tracker).
+    val story = app.story.story
+    val events = if (story.enabled) story.events else emptyList()
+    val eventItems = remember(events, session) {
+        events.map { e ->
+            val m = app.astra.core.ChartAt.ofMonth(session.chart, e.month, z)
+            val mid = m.at
+            BandItem(STORY_ROW, mid.minus(java.time.Duration.ofDays(8)), mid.plus(java.time.Duration.ofDays(8)), e.title.take(18),
+                "${e.title} · ${Fmt.monthYear(mid, z)}", listOf("What your chart showed then:") + m.lines(), c.accent)
+        }
+    }
+    fun select(item: BandItem) {
+        selected = item
+        if (item.row == STORY_ROW) app.analytics.log("life_event_viewed") else app.analytics.log("tracker_item_tapped", "item_type" to "band")
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TimelineBands(session, timeline, onSelect = { selected = it }, modifier = Modifier.testTag("timelineBands"))
+        TimelineBands(session, timeline, onSelect = { select(it) }, modifier = Modifier.testTag("timelineBands"),
+            extra = eventItems.filter { it.end.isAfter(timeline.from) && it.start.isBefore(timeline.to) })
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Legend()
             selected?.let { item ->
@@ -182,9 +204,24 @@ private fun TimelineTab(session: Session, timeline: Timeline?) {
                         Text(item.title, style = Astra.type.heading, color = c.text, modifier = Modifier.weight(1f))
                         Box(Modifier.size(40.dp).clickable { selected = null }, contentAlignment = Alignment.Center) { AIcon(R.drawable.ic_x, "Close", size = 18.dp) }
                     }
-                    Text("${Fmt.date(item.start, z)} – ${Fmt.date(item.end, z)}", style = Astra.type.label, color = c.textSecondary)
+                    if (item.row != STORY_ROW) Text("${Fmt.date(item.start, z)} – ${Fmt.date(item.end, z)}", style = Astra.type.label, color = c.textSecondary)
                     item.lines.forEach { Text(it, style = Astra.type.label, color = c.text) }
                     Text(Copy.NOT_PREDICTION, style = Astra.type.meta, color = c.textSecondary)
+                    TextLink("Ask about this", {
+                        onAsk(if (item.row == STORY_ROW) "What was my chart showing around ${item.title.substringAfter(" · ")}, when this happened: ${item.title.substringBefore(" · ")}?"
+                            else "Tell me about my ${item.title} (${Fmt.date(item.start, z)} to ${Fmt.date(item.end, z)}).")
+                    }, Modifier.testTag("askAboutThis"))
+                }
+            }
+            if (eventItems.isNotEmpty()) {
+                SectionTitle("Your life events")
+                Text("From My Story. Tap one to see what your chart showed that month.", style = Astra.type.meta, color = c.textSecondary)
+                eventItems.forEach { it2 ->
+                    Row(Modifier.fillMaxWidth().clickable { select(it2) }.padding(vertical = 8.dp).testTag("lifeEvent"), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("◆", style = Astra.type.label, color = c.accent)
+                        Text(it2.title.substringBefore(" · "), style = Astra.type.bodyStrong, color = c.text, modifier = Modifier.weight(1f))
+                        Text(it2.title.substringAfter(" · "), style = Astra.type.meta, color = c.textSecondary)
+                    }
                 }
             }
             SectionTitle("Coming up") {
@@ -223,14 +260,14 @@ private fun Legend() {
 @Composable
 private fun NotifyOffer(app: App) {
     val c = Astra.colors
-    val enable = rememberEnableNotifications(app)
+    val enable = rememberEnableNotifications(app) { granted -> app.analytics.log("push_permission", "granted" to granted, "ask_point" to "after_first_value") }
     AstraCard(Modifier.testTag("notifyOffer")) {
         Text("Get a short morning note?", style = Astra.type.heading, color = c.text)
         Text("Like this, at 7:30 am: \"Today: Shukla Dashami · Moon in your 10th · Rahu Kaal 1:30–3:00\". Plus a heads-up when something changes in your chart, at most twice a week.",
             style = Astra.type.label, color = c.text)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PrimaryButton("Yes, please", enable, Modifier.weight(1f).testTag("notifyYes"))
-            SecondaryButton("Not now", { app.notify.setEnabled(false) }, Modifier.weight(1f).testTag("notifyNo"))
+            SecondaryButton("Not now", { app.notify.setEnabled(false); app.analytics.log("push_permission", "granted" to false, "ask_point" to "declined_offer") }, Modifier.weight(1f).testTag("notifyNo"))
         }
     }
 }

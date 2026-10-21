@@ -1,4 +1,4 @@
-// Today: greeting, panchang for where you live, your Moon transit, current period and what's next. No AI in M2.
+// Today: greeting, check-ins, your day (with the AI line), today's card and the panchang for where you live.
 package app.astra.ui.today
 
 import app.astra.App
@@ -48,7 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TodayScreen(app: App, session: Session) {
+fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpenTracker: () -> Unit = {}) {
     val c = Astra.colors
     val z = session.zone
     val pCalc by rememberCalc(session) { session.panchangToday }
@@ -63,6 +63,7 @@ fun TodayScreen(app: App, session: Session) {
             r.answer to r.storyUsed.size
         }.getOrNull()
     }
+    androidx.compose.runtime.LaunchedEffect(session) { app.analytics.log("today_viewed", "day_index" to app.analytics.dayIndex(session.today)) }
     val panchang = pCalc.valueOrNull
     val positions = posCalc.valueOrNull
     val timeline = tlCalc.valueOrNull
@@ -78,6 +79,10 @@ fun TodayScreen(app: App, session: Session) {
         }
         Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             (pCalc.error ?: posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
+            val story = app.story.story
+            val pending = app.astra.core.StoryRules.pendingCheckins(story)
+            pending.firstOrNull()?.let { CheckinCard(app, session, it, onOpenTracker) }
+            if (pending.isEmpty() && app.astra.core.StoryRules.surveyDue(story, session.today)) SurveyCard(app, session)
             // Your day
             AstraCard(Modifier.testTag("yourDay")) {
                 Text("Your day", style = Astra.type.heading, color = c.text)
@@ -102,6 +107,8 @@ fun TodayScreen(app: App, session: Session) {
                 }
                 Text(Copy.NOT_PREDICTION, style = Astra.type.meta, color = c.textSecondary)
             }
+
+            DailyCard(app, session, onOpenTarot)
 
             SectionTitle("Panchang")
             val p = panchang

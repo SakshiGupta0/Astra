@@ -34,7 +34,9 @@ import java.util.concurrent.TimeUnit
 object Notifications {
     const val CH_DAILY = "astra_daily"
     const val CH_EVENTS = "astra_events"
+    const val CH_CHECKINS = "astra_checkins"
     const val EXTRA_TAB = "open_tab"
+    const val EXTRA_LOOP = "push_loop"
     private const val WORK = "astra_daily_note"
 
     fun createChannels(context: Context) {
@@ -45,6 +47,9 @@ object Notifications {
         })
         nm.createNotificationChannel(NotificationChannel(CH_EVENTS, "Changes in your chart", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "A planet changing sign for you, or a new dasha period. At most two a week."
+        })
+        nm.createNotificationChannel(NotificationChannel(CH_CHECKINS, "Story check-ins", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "A gentle follow-up on an open question in My Story. At most one a day."
         })
     }
 
@@ -69,16 +74,22 @@ object Notifications {
 
     fun post(context: Context, n: PlannedNotice, id: Int) {
         if (!canPost(context)) return
-        val tab = if (n.kind == NotifyKind.DAILY) "TODAY" else "TRACKER"
-        val intent = Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val tab = if (n.kind == NotifyKind.DAILY || n.kind == NotifyKind.CHECKIN) "TODAY" else "TRACKER"
+        val loop = when (n.kind) { NotifyKind.DAILY -> "daily"; NotifyKind.WEEKLY -> "weekly"; NotifyKind.EVENT -> "event"; NotifyKind.CHECKIN -> "checkin" }
+        val intent = Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab).putExtra(EXTRA_LOOP, loop)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pi = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val notification = NotificationCompat.Builder(context, if (n.kind == NotifyKind.EVENT) CH_EVENTS else CH_DAILY)
+        val channel = when (n.kind) { NotifyKind.EVENT -> CH_EVENTS; NotifyKind.CHECKIN -> CH_CHECKINS; else -> CH_DAILY }
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_astra)
             .setContentTitle(n.title).setContentText(n.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(n.body))
             .setContentIntent(pi).setAutoCancel(true)
             .build()
-        try { NotificationManagerCompat.from(context).notify(id, notification) } catch (_: SecurityException) { }
+        try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+            (context.applicationContext as App).analytics.log("push_posted", "loop" to loop)
+        } catch (_: SecurityException) { }
     }
 
     /** The work the daily job does, also callable from a test. Returns what was posted. */
@@ -90,11 +101,14 @@ object Notifications {
         val moon = s.positions.firstOrNull { it.graha == Graha.MOON }?.houseFromMoon
         val week = NotifyPlanner.weekKey(s.today)
         val dailyDone = app.notify.lastDailyDate() == s.today.toString()
+        // A check-in that falls due today (at most one a day, one per thread per gap).
+        val checkin = app.rollCheckins(s.today)
         val planned = NotifyPlanner.forDay(s.today, s.zone, app.notify.prefs, s.timelineNow, s.panchangToday, moon,
-            app.notify.sentEventKeys(), app.notify.eventAlertsInWeek(week))
-            .filter { it.kind == NotifyKind.EVENT || !dailyDone }
+            app.notify.sentEventKeys(), app.notify.eventAlertsInWeek(week), checkin)
+            .filter { it.kind == NotifyKind.EVENT || it.kind == NotifyKind.CHECKIN || !dailyDone }
         planned.forEach { post(context, it, it.key.hashCode()) }
-        if (planned.any { it.kind != NotifyKind.EVENT }) app.notify.recordDaily(s.today.toString())
+        if (planned.any { it.kind == NotifyKind.DAILY || it.kind == NotifyKind.WEEKLY }) app.notify.recordDaily(s.today.toString())
+        app.analytics.flush()
         app.notify.recordEventAlerts(week, planned.filter { it.kind == NotifyKind.EVENT }.map { it.key })
         return planned
     }

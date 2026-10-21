@@ -4,6 +4,8 @@ package app.astra
 
 import android.graphics.Bitmap
 import app.astra.core.NotifyKind
+import app.astra.core.StoryRules
+import app.astra.core.ThreadStatus
 import app.astra.system.Notifications
 import app.astra.ui.ask.AskState
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -47,7 +49,10 @@ class SmokeTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as App
 
     @Before fun reset() {
-        rule.runOnUiThread { app.deleteEverything(); app.backend = NoBackend; AskState.resetForTests() }
+        rule.runOnUiThread {
+            app.deleteEverything(); app.backend = NoBackend; AskState.resetForTests()
+            app.astra.ui.tarot.TarotState.resetForTests(); app.analytics.setEnabled(false)
+        }
         rule.waitForIdle()
     }
 
@@ -105,8 +110,8 @@ class SmokeTest {
         rule.onNodeWithText("Timeline").performClick()
         waitTag("timelineBands", 40_000)
         shot("12_tracker_timeline")
-        rule.onNodeWithTag("tab_CHART").performClick()
-        rule.onNodeWithTag("lagna").assertIsDisplayed()
+        rule.onNodeWithText("Chart").performClick()
+        waitTag("lagna").assertIsDisplayed()
         rule.onNodeWithText("Birth chart (Rasi)").assertIsDisplayed()
         shot("13_chart")
         rule.onNodeWithText("How this was calculated").performScrollTo()
@@ -125,7 +130,7 @@ class SmokeTest {
     @Test fun b_unknownTimeHidesLagna() {
         onboard("I don't know", hour = null, minute = null)
         waitTag("whereYouAre")
-        rule.onNodeWithTag("tab_CHART").performClick()
+        rule.onNodeWithText("Chart").performClick()
         rule.onNodeWithText("Moon chart (Chandra lagna)").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Needs birth time").performScrollTo().assertIsDisplayed()
         shot("20_chart_unknown_time")
@@ -194,10 +199,10 @@ class SmokeTest {
         rule.onNodeWithTag("saveAnswer").performScrollTo().performClick()
         waitTag("storyOffer")
         shot("50_story_offer_after_save")
-        rule.onNodeWithText("Set up My Story").performScrollTo().performClick()
-        waitTag("storySwitch").performClick()
+        rule.onNodeWithTag("storyOfferYes").performScrollTo().performClick()
+        waitTag("storySwitch")
         rule.waitForIdle()
-        assertTrue(app.story.story.enabled && app.story.story.consent!!.offerPoint == "settings")
+        assertTrue(app.story.story.enabled && app.story.story.consent!!.offerPoint == "second")
         rule.onNodeWithTag("threadTitle").performScrollTo().performTextInput("Parents want me to meet a match")
         rule.onNodeWithTag("addThread").performScrollTo().performClick()
         rule.waitForIdle()
@@ -230,5 +235,105 @@ class SmokeTest {
         rule.onNodeWithTag("tab_ASK").performClick()
         rule.onNodeWithText("Ask ASTRA is still being set up", substring = true).assertIsDisplayed()
         shot("70_ask_not_set_up")
+    }
+
+    @Test fun i_tarotReadingAndCrossReading() {
+        val fake = FakeBackend()
+        rule.runOnUiThread { app.backend = fake }
+        onboard("I know the exact time")
+        waitTag("whereYouAre")
+        rule.onNodeWithTag("tab_TAROT").performClick()
+        waitTag("tarotIntro")
+        rule.onNodeWithTag("tarotQuestion").performTextInput("What do I need to see about the job offer?")
+        shot("80_tarot_new")
+        rule.onNodeWithTag("drawCards").performClick()
+        waitTag("card0")
+        shot("81_tarot_face_down")
+        rule.onNodeWithTag("card0").performClick()
+        rule.mainClock.advanceTimeBy(800)
+        shot("82_tarot_one_revealed")
+        rule.onNodeWithTag("revealAll").performClick()
+        waitTag("cardMeanings")
+        shot("83_tarot_meanings")
+        val drawn = app.astra.ui.tarot.TarotState.draw!!
+        assertTrue(drawn.cards.size == 3 && drawn.cards.map { it.cardId }.toSet().size == 3)
+        rule.onNodeWithTag("readCards").performScrollTo().performClick()
+        waitTag("tarotAnswer", 30_000)
+        // The draw reached the server before it was read, and the reading is of that same draw.
+        assertTrue(fake.draws.single().id == drawn.id && fake.readings.first() == ("tarot" to drawn.id))
+        rule.onNodeWithTag("tarotAnswer").performScrollTo()
+        shot("84_tarot_reading")
+        rule.onNodeWithTag("crossReading").performScrollTo().performClick()
+        waitTag("crossAnswer", 30_000)
+        rule.onNodeWithText("Where they differ").performScrollTo().assertIsDisplayed()
+        shot("85_cross_reading")
+        rule.onNodeWithTag("rate5").performScrollTo().performClick()
+        rule.onNodeWithTag("saveCross").performScrollTo().performClick()
+        rule.waitForIdle()
+        val saved = app.readings.readings.first()
+        assertTrue(saved.type == "cross" && saved.draw == drawn && saved.rating == 5)
+        rule.onNodeWithTag("tarotLibrary").performClick()
+        waitTag("libraryList")
+        rule.onNodeWithText("Cross-Reading").assertIsDisplayed()
+        shot("86_library_with_cards")
+    }
+
+    @Test fun j_checkinThenLifeEventOnTracker() {
+        onboard("I know the exact time", story = true)
+        waitTag("whereYouAre")
+        rule.runOnUiThread {
+            app.story.update { StoryRules.addThread(it, "Deciding on a job offer", today = java.time.LocalDate.now().minusDays(22)) }
+            app.rollCheckins()
+        }
+        rule.onNodeWithTag("tab_TODAY").performClick()
+        waitTag("checkin")
+        shot("90_checkin")
+        rule.onNodeWithTag("checkinText").performTextInput("Took the new job")
+        rule.onNodeWithTag("checkinResolved").performClick()
+        waitTag("checkinAddEvent").performClick()
+        rule.waitForIdle()
+        val st = app.story.story
+        assertTrue(st.threads.single().status == ThreadStatus.RESOLVED && st.threads.single().outcome == "Took the new job")
+        assertTrue(st.events.single().title == "Took the new job")
+        shot("91_checkin_done")
+        waitTag("checkinSeeTracker").performClick()
+        rule.onNodeWithText("Timeline").performClick()
+        waitTag("timelineBands", 40_000)
+        waitTag("lifeEvent").performScrollTo().performClick()
+        waitTag("askAboutThis").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("What your chart showed then:").assertIsDisplayed()
+        shot("92_life_event_on_tracker")
+    }
+
+    @Test fun k_dailyCardAndPrivacy() {
+        onboard("I know the exact time")
+        waitTag("whereYouAre")
+        rule.onNodeWithTag("tab_TODAY").performClick()
+        waitTag("dailyCard").performScrollTo()
+        shot("100_daily_card_down")
+        rule.onNodeWithTag("dailyCardFace").performClick()
+        waitTag("askDailyCard").assertIsDisplayed()
+        shot("101_daily_card_up")
+        val card = app.draws.daily!!
+        assertTrue(card.day == java.time.LocalDate.now() && card.cards.size == 1)
+        rule.onNodeWithTag("askDailyCard").performClick()
+        waitTag("cardMeanings")
+        assertTrue(app.astra.ui.tarot.TarotState.draw == card)
+        rule.onNodeWithTag("tab_ME").performClick()
+        rule.onNodeWithTag("privacyCard").performScrollTo()
+        shot("102_me_privacy")
+        rule.onNodeWithTag("analyticsSwitch").performClick(); rule.waitForIdle()
+        assertTrue(app.analytics.enabled)
+        rule.onNodeWithTag("analyticsSwitch").performClick(); rule.waitForIdle()
+        assertTrue(!app.analytics.enabled)
+        rule.onNodeWithTag("openPrivacy").performScrollTo().performClick()
+        waitTag("privacyNotice")
+        rule.onNodeWithText("Your choices and rights").performScrollTo().assertIsDisplayed()
+        shot("103_privacy_notice")
+        rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        rule.onNodeWithTag("deleteAccount").performScrollTo().performClick()
+        rule.onNodeWithText("Delete your account?").assertIsDisplayed()
+        shot("104_delete_account_confirm")
+        rule.onNodeWithText("Cancel").performClick()
     }
 }

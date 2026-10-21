@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.astra.App
 import app.astra.R
+import app.astra.core.StoryRules
 import app.astra.core.ThreadStatus
 import app.astra.ui.Session
 import app.astra.ui.components.AField
@@ -57,6 +58,7 @@ fun AskScreen(app: App, session: Session, onOpenStory: () -> Unit) {
     val c = Astra.colors
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
+    LaunchedEffect(AskState.draft) { AskState.draft?.let { input = it.take(500); AskState.draft = null } }
     val listState = rememberLazyListState()
     val turns = AskState.turns
     LaunchedEffect(turns.size) { if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size) }
@@ -166,6 +168,22 @@ private fun AnswerCard(app: App, t: Turn, onOpenStory: () -> Unit) {
         if (a.safety != "crisis") Text("A reflection on your chart in the tradition's terms, not a prediction.", style = Astra.type.meta, color = c.textSecondary)
     }
     if (offer) StoryOffer(app, onOpenStory, onDone = { offer = false })
+    // ASTRA never writes to the story by itself: a suggestion is saved only when the user taps Add (PRD 3.3).
+    val suggestion = remember(t.id) { AskState.suggestion(app.story.story, t.question) }
+    if (suggestion != null && t.suggestionAnswered == null && a.safety == "ok") AstraCard(Modifier.testTag("storySuggestion")) {
+        Text("Add to My Story?", style = Astra.type.bodyStrong, color = c.text)
+        Text("“$suggestion” as something on your mind, so later answers and check-ins can follow it.", style = Astra.type.label, color = c.textSecondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextLink("Add", {
+                if (app.story.update { StoryRules.addThread(it, suggestion, today = java.time.LocalDate.now()) }) {
+                    t.suggestionAnswered = true
+                    app.analytics.log("story_item_added", "type" to "thread", "source" to "ai_proposal")
+                }
+            }, Modifier.testTag("acceptSuggestion"))
+            TextLink("No thanks", { t.suggestionAnswered = false })
+        }
+    }
+    if (t.suggestionAnswered == true) Text("Added to My Story.", style = Astra.type.meta, color = c.textSecondary)
 }
 
 /** Second (and last) offer of My Story, after the first saved reading (PRD 3.3). */
@@ -177,32 +195,8 @@ private fun StoryOffer(app: App, onOpenStory: () -> Unit, onDone: () -> Unit) {
         Text("Tell it once what's going on — a decision, a hope, a worry — and every answer, alert and reading starts from there. You see and edit everything, and can switch it off any time.",
             style = Astra.type.label, color = c.text)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PrimaryButton("Set up My Story", { app.story.update { it.copy(offersShown = 2) }; onDone(); onOpenStory() }, Modifier.weight(1f))
+            PrimaryButton("Turn on My Story", { app.story.update { StoryRules.grant(it.copy(offersShown = 2), "second") }; onDone(); onOpenStory() }, Modifier.weight(1f).testTag("storyOfferYes"))
             SecondaryButton("Not now", { app.story.update { it.copy(offersShown = 2) }; onDone() }, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-fun LibraryScreen(app: App, onBack: () -> Unit) {
-    val c = Astra.colors
-    androidx.activity.compose.BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clickable(onClick = onBack), contentAlignment = Alignment.Center) { AIcon(R.drawable.ic_chevron_left, "Back") }
-            Text("Saved readings", style = Astra.type.title, color = c.text)
-        }
-        if (app.readings.readings.isEmpty()) Text("Answers you save appear here.", style = Astra.type.body, color = c.textSecondary, modifier = Modifier.padding(20.dp))
-        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(app.readings.readings, key = { it.id }) { r ->
-                var open by remember { mutableStateOf(false) }
-                AstraCard(Modifier.animateContentSize(), onClick = { open = !open }) {
-                    Text(r.createdAt.atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString(), style = Astra.type.meta, color = c.textSecondary)
-                    Text(r.question, style = Astra.type.bodyStrong, color = c.text)
-                    Text(if (open) r.answer else r.answer.take(140) + if (r.answer.length > 140) "…" else "", style = Astra.type.label, color = c.text)
-                    if (open) Row { Box(Modifier.weight(1f)); TextLink("Delete", { app.readings.delete(r.id) }) }
-                }
-            }
         }
     }
 }

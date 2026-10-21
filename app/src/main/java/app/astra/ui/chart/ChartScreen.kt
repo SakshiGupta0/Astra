@@ -53,13 +53,14 @@ import app.astra.ui.theme.Astra
 import app.astra.ui.theme.Inter
 
 @Composable
-fun ChartScreen(session: Session) {
+fun ChartScreen(session: Session, embedded: Boolean = false) {
     val chart = session.chart
     val c = Astra.colors
     val moonChart = chart.lagnaLon == null
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Your chart", style = Astra.type.title, color = c.text)
-        Text("Vedic (sidereal) · ${session.profile.birthPlace.label}", style = Astra.type.meta, color = c.textSecondary)
+    Column(Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.statusBarsPadding()).verticalScroll(rememberScrollState())
+        .padding(horizontal = 20.dp, vertical = if (embedded) 0.dp else 12.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!embedded) Text("Your chart", style = Astra.type.title, color = c.text)
+        Text("Vedic (sidereal) · born in ${session.profile.birthPlace.label}", style = Astra.type.meta, color = c.textSecondary)
         chart.warnings.forEach { Notice(it) }
 
         AstraCard {

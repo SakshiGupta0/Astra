@@ -80,6 +80,7 @@ fun StorySection(app: App, session: Session) {
             if (now.trim() != story.about.nowLine) TextLink("Save", { app.story.update { it.copy(about = it.about.copy(nowLine = StoryRules.clip(now))) } })
         }
         ThreadsCard(app, session)
+        CheckinGap(app)
         EventsCard(app)
         if (story.digests.isNotEmpty()) AstraCard {
             Text("Earlier readings", style = Astra.type.heading, color = c.text)
@@ -140,7 +141,9 @@ private fun ThreadsCard(app: App, session: Session) {
         if (title.isNotBlank()) {
             AField(note, { note = it.take(StoryRules.MAX_TEXT) }, "A little more detail (optional)")
             TextLink("Add", {
-                if (app.story.update { StoryRules.addThread(it, title, note, today = session.today) }) { title = ""; note = "" }
+                if (app.story.update { StoryRules.addThread(it, title, note, today = session.today) }) {
+                    title = ""; note = ""; app.analytics.log("story_item_added", "type" to "thread", "source" to "user")
+                }
             }, Modifier.testTag("addThread"))
         }
     }
@@ -155,7 +158,7 @@ private fun EventsCard(app: App) {
     var year by remember { mutableStateOf("") }
     AstraCard(Modifier.animateContentSize()) {
         Text("Life events", style = Astra.type.heading, color = c.text)
-        Text("Moments you'd like ASTRA to know about, such as a move, a new job or a wedding.", style = Astra.type.meta, color = c.textSecondary)
+        Text("Moments you'd like ASTRA to know about, such as a move, a new job or a wedding. They appear on your tracker timeline.", style = Astra.type.meta, color = c.textSecondary)
         story.events.forEach { e ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${e.month} · ${e.title}", style = Astra.type.label, color = c.text, modifier = Modifier.weight(1f))
@@ -169,7 +172,9 @@ private fun EventsCard(app: App) {
                 AField(year, { year = it.filter(Char::isDigit).take(4) }, "Year", Modifier.weight(1.3f), KeyboardType.Number, placeholder = "YYYY")
             }
             val ym = runCatching { YearMonth.of(year.toInt(), month.toInt()) }.getOrNull()?.takeIf { it.year in 1900..YearMonth.now().year + 1 }
-            if (ym != null) TextLink("Add", { if (app.story.update { StoryRules.addEvent(it, title, ym) }) { title = ""; month = ""; year = "" } })
+            if (ym != null) TextLink("Add", { if (app.story.update { StoryRules.addEvent(it, title, ym) }) {
+                title = ""; month = ""; year = ""; app.analytics.log("story_item_added", "type" to "event", "source" to "user")
+            } })
         }
     }
 }
@@ -182,6 +187,7 @@ private fun ShareDialog(app: App, session: Session, onDone: () -> Unit) {
     var dasha by remember { mutableStateOf(true) }
     var threads by remember { mutableStateOf(true) }
     var events by remember { mutableStateOf(true) }
+    var pdf by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDone,
         title = { Text("Share my story") },
@@ -193,13 +199,43 @@ private fun ShareDialog(app: App, session: Session, onDone: () -> Unit) {
                     Triple("Life events", events) { v: Boolean -> events = v }).forEach { (label, value, set) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { set(!value) }) { Checkbox(value, { set(it) }); Text(label) }
                 }
+                Text("Send as", style = Astra.type.label, modifier = Modifier.padding(top = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SelectPill("Text", !pdf, { pdf = false })
+                    SelectPill("PDF", pdf, { pdf = true }, Modifier.testTag("sharePdf"))
+                }
             }
         },
         confirmButton = { TextButton({
             val text = StoryRules.export(app.story.story, session.profile, session.chart, session.at, birth, chart, dasha, threads, events)
-            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share my story"))
+            val count = listOf(birth, chart, dasha, threads, events).count { it }
+            val send = if (pdf) runCatching {
+                val f = app.astra.data.StoryPdf.write(ctx, text)
+                val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+                Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }.getOrNull() else null
+            ctx.startActivity(Intent.createChooser(send ?: Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share my story"))
+            app.analytics.log("story_exported", "fields_count" to count, "format" to if (send != null) "pdf" else "text")
             onDone()
         }) { Text("Share") } },
         dismissButton = { TextButton(onDone) { Text("Cancel") } }
     )
+}
+
+/** How often ASTRA follows up on open questions (default every 3 weeks; can be switched off). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CheckinGap(app: App) {
+    val c = Astra.colors
+    val days = app.story.story.checkinDays
+    AstraCard {
+        Text("Check-ins", style = Astra.type.heading, color = c.text)
+        Text("ASTRA asks how an open question is going, then saves your answer to your story.", style = Astra.type.meta, color = c.textSecondary)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StoryRules.CHECKIN_CHOICES.forEach { d ->
+                SelectPill(when (d) { 0 -> "Off"; 7 -> "Every week"; 14 -> "Every 2 weeks"; 21 -> "Every 3 weeks"; else -> "Every month" }, days == d,
+                    { app.story.update { it.copy(checkinDays = d) } })
+            }
+        }
+    }
 }

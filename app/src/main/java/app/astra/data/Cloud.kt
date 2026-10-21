@@ -9,6 +9,9 @@ import app.astra.BuildConfig
 import app.astra.core.Json
 import app.astra.core.Story
 import app.astra.core.StoryRules
+import app.astra.core.Tarot
+import app.astra.core.TarotDraw
+import app.astra.core.DrawCodec
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -22,7 +25,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.withTimeout
 
-data class AskResult(val answer: String, val storyUsed: List<String>, val remaining: Int?, val model: String, val promptVersion: String, val safety: String)
+data class AskResult(val answer: String, val storyUsed: List<String>, val remaining: Int?, val model: String, val promptVersion: String, val safety: String, val mode: String = "ask")
 
 sealed class CloudError(message: String) : Exception(message) {
     class NotSetUp : CloudError("Ask ASTRA is still being set up. Your chart, tracker and Today work on this phone.")
@@ -38,6 +41,12 @@ interface AskBackend {
     suspend fun syncStory(story: Story)
     suspend fun ask(question: String, storyIds: List<String>): AskResult
     suspend fun todayLine(): AskResult
+    /** Saves a card draw to the user's space before any interpretation (PRD F-09). */
+    suspend fun syncDraw(draw: TarotDraw)
+    /** Tarot reading of a saved draw; one of the day's 15 messages. */
+    suspend fun tarot(drawId: String, question: String, storyIds: List<String>): AskResult
+    /** Cross-Reading of a saved three-card draw with the chart; 2 a day. */
+    suspend fun cross(drawId: String, question: String, storyIds: List<String>): AskResult
 }
 
 class Cloud(private val context: Context) : AskBackend {
@@ -90,6 +99,79 @@ class Cloud(private val context: Context) : AskBackend {
 
     override suspend fun todayLine(): AskResult = call(mapOf("mode" to "today_line"))
 
+    override suspend fun syncDraw(draw: TarotDraw) {
+        if (!firebaseReady) return
+        val id = uid()
+        withTimeout(20_000) {
+            db.document("users/$id/draws/${draw.id}").set(mapOf(
+                "facts" to Json.write(Tarot.facts(draw)), "json" to DrawCodec.encode(draw), "at" to draw.drawnAt.toString(),
+                "updated_at" to FieldValue.serverTimestamp())).await()
+        }
+    }
+
+    override suspend fun tarot(drawId: String, question: String, storyIds: List<String>): AskResult =
+        call(mapOf("mode" to "tarot", "drawId" to drawId, "question" to question, "storyIds" to storyIds))
+
+    override suspend fun cross(drawId: String, question: String, storyIds: List<String>): AskResult =
+        call(mapOf("mode" to "cross", "drawId" to drawId, "question" to question, "storyIds" to storyIds))
+
+    /** Evidence of a My Story consent change, with the copy version shown (PRD 3.3, DPDP). */
+    suspend fun recordConsent(granted: Boolean, copyVersion: String, offerPoint: String, at: java.time.Instant) {
+        if (!firebaseReady) return
+        val id = uid()
+        withTimeout(20_000) {
+            db.collection("users/$id/consents").add(mapOf(
+                "purpose" to "my_story", "granted" to granted, "copy_version" to copyVersion, "offer_point" to offerPoint,
+                "at" to at.toString(), "recorded_at" to FieldValue.serverTimestamp())).await()
+        }
+    }
+
+    /** Posts JSON to the AI server (events, feedback, delete-me). Returns the HTTP status. */
+    suspend fun post(path: String, body: Map<String, Any?>): Int {
+        if (!available) throw CloudError.NotSetUp()
+        uid()
+        val token = withTimeout(20_000) { auth.currentUser!!.getIdToken(false).await() }.token ?: throw CloudError.Failed("Couldn't confirm your session.")
+        return try {
+            withContext(Dispatchers.IO) {
+                val conn = (URL(BuildConfig.AI_URL.trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; connectTimeout = 15_000; readTimeout = 30_000; doOutput = true
+                    setRequestProperty("content-type", "application/json"); setRequestProperty("authorization", "Bearer $token")
+                }
+                try {
+                    conn.outputStream.use { it.write(Json.write(body).toByteArray()) }
+                    conn.responseCode.also { runCatching { (if (it in 200..299) conn.inputStream else conn.errorStream)?.close() } }
+                } finally { conn.disconnect() }
+            }
+        } catch (e: java.io.IOException) { throw CloudError.Offline() }
+    }
+
+    suspend fun sendFeedback(text: String) {
+        val code = post("/feedback", mapOf("text" to text, "app" to BuildConfig.VERSION_NAME))
+        if (code == 429) throw CloudError.Failed("Thanks! You've sent a lot of feedback today. Please send more tomorrow.")
+        if (code !in 200..299) throw CloudError.Failed("Couldn't send just now. Please try again.")
+    }
+
+    /**
+     * Deletes everything about this user on the server: counters, usage events and feedback (AI server),
+     * then every document in their Firestore space, then the sign-in account itself.
+     */
+    suspend fun deleteAccount() {
+        if (!firebaseReady) return
+        val user = auth.currentUser ?: return
+        val id = user.uid
+        if (available) { val code = post("/delete-me", emptyMap()); if (code !in 200..299) throw CloudError.Failed("Couldn't reach the server to delete your data. Please try again.") }
+        withTimeout(60_000) {
+            for (coll in listOf("draws", "consents", "facts", "story", "backup", "notify", "today")) {
+                val docs = db.collection("users/$id/$coll").get().await()
+                for (d in docs.documents) d.reference.delete().await()
+            }
+            db.document("users/$id").delete().await()
+        }
+        try { withTimeout(20_000) { user.delete().await() } }
+        catch (e: Exception) { auth.signOut() } // Google accounts may need a fresh sign-in to delete; the data is already gone.
+        refreshAccount()
+    }
+
     /** POST to the AI server with the user's Firebase ID token. */
     @Suppress("UNCHECKED_CAST")
     private suspend fun call(data: Map<String, Any?>): AskResult {
@@ -120,7 +202,8 @@ class Cloud(private val context: Context) : AskBackend {
             storyUsed = (m["storyUsed"] as List<String>?) ?: emptyList(),
             remaining = (m["remaining"] as Number?)?.toInt(),
             model = (m["model"] as String?) ?: "", promptVersion = (m["promptVersion"] as String?) ?: "",
-            safety = (m["safety"] as String?) ?: "ok"
+            safety = (m["safety"] as String?) ?: "ok",
+            mode = (m["mode"] as String?) ?: (data["mode"] as String? ?: "ask")
         )
     }
 
