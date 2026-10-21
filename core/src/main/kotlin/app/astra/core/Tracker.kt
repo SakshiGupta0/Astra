@@ -280,3 +280,40 @@ class Tracker(val chart: ChartSnapshot) {
         return out
     }
 }
+
+/** What the chart showed at a past (or future) moment: used for life events on the tracker (PRD F-04, F-06). */
+data class ChartMoment(
+    val at: Instant,
+    val maha: Graha?, val antar: Graha?,
+    val jupiterRashi: Rashi, val jupiterHouse: Int,
+    val saturnRashi: Rashi, val saturnHouse: Int,
+    val rahuHouse: Int,
+    val tone: Tone,
+    val saturnPhase: SaturnPhase
+) {
+    /** Plain lines for the life-event sheet. Same rules and copy as the live tracker. */
+    fun lines(): List<String> = listOfNotNull(
+        if (maha != null && antar != null) "Dasha: ${maha.english}–${antar.english} period" else null,
+        "Period tone: ${tone.label.lowercase()}",
+        "Jupiter in ${jupiterRashi.sanskrit}, ${ordinal(jupiterHouse)} from your Moon" + if (Gochar.isFavourable(Graha.JUPITER, jupiterHouse)) " — traditionally supportive" else "",
+        "Saturn in ${saturnRashi.sanskrit}, ${ordinal(saturnHouse)} from your Moon" + if (saturnPhase != SaturnPhase.OTHER) " — ${saturnPhase.label}" else "",
+        "Rahu ${ordinal(rahuHouse)} and Ketu ${ordinal((rahuHouse + 5) % 12 + 1)} from your Moon"
+    )
+}
+
+object ChartAt {
+    fun of(chart: ChartSnapshot, at: Instant): ChartMoment {
+        val t = Ephemeris.toTime(at)
+        val moonSign = Ephemeris.signOf(chart.moon.lon)
+        fun sign(g: Graha) = Ephemeris.signOf(Ephemeris.siderealLongitude(g, t))
+        val js = sign(Graha.JUPITER); val ss = sign(Graha.SATURN); val rs = sign(Graha.RAHU)
+        val jh = Houses.fromSign(js, moonSign); val sh = Houses.fromSign(ss, moonSign)
+        val d = chart.dasha.at(at)
+        return ChartMoment(at, d?.maha?.lord, d?.antar?.lord, Rashi.entries[js], jh, Rashi.entries[ss], sh, Houses.fromSign(rs, moonSign),
+            Gochar.tone(jh, sh), SaturnPhase.ofHouse(sh))
+    }
+
+    /** A life event is recorded to the month; we read the chart in the middle of that month. */
+    fun ofMonth(chart: ChartSnapshot, month: java.time.YearMonth, zone: java.time.ZoneId): ChartMoment =
+        of(chart, month.atDay(15).atTime(12, 0).atZone(zone).toInstant())
+}

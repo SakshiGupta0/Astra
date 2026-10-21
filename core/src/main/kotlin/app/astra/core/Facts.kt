@@ -97,31 +97,35 @@ object Facts {
     }
 }
 
-/** A saved reading in the library (PRD F-11). */
+/** A saved reading in the library (PRD F-11). Tarot and Cross-Readings keep their draw so they can be reopened exactly. */
 data class Reading(
     val id: String,
-    val type: String,          // "ask"
+    val type: String,          // "ask" | "tarot" | "cross"
     val question: String,
     val answer: String,
     val storyItemsUsed: List<String>,
     val language: String,
     val model: String,
     val promptVersion: String,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val draw: TarotDraw? = null,
+    /** Cross-Reading rating 1 (not helpful) to 5 (very helpful), if the user gave one. */
+    val rating: Int? = null
 )
 
 object ReadingCodec {
     fun encode(list: List<Reading>): String = Json.write(list.map {
         mapOf("id" to it.id, "type" to it.type, "q" to it.question, "a" to it.answer, "story" to it.storyItemsUsed,
-            "lang" to it.language, "model" to it.model, "prompt" to it.promptVersion, "at" to it.createdAt.toString())
+            "lang" to it.language, "model" to it.model, "prompt" to it.promptVersion, "at" to it.createdAt.toString(),
+            "draw" to it.draw?.let { d -> DrawCodec.toMap(d) }, "rating" to it.rating)
     })
 
     @Suppress("UNCHECKED_CAST")
     fun decode(text: String): List<Reading> = try {
         (Json.parse(text) as List<Map<String, Any?>>).map {
             Reading(it["id"] as String, it["type"] as String, it["q"] as String, it["a"] as String, (it["story"] as List<String>?) ?: emptyList(),
-                (it["lang"] as String?) ?: "en", (it["model"] as String?) ?: "", (it["prompt"] as String?) ?: "", Instant.parse(it["at"] as String))
+                (it["lang"] as String?) ?: "en", (it["model"] as String?) ?: "", (it["prompt"] as String?) ?: "", Instant.parse(it["at"] as String),
+                (it["draw"] as Map<String, Any?>?)?.let { d -> DrawCodec.fromMap(d) }, (it["rating"] as Number?)?.toInt())
         }
     } catch (e: Exception) { emptyList() }
 }
-

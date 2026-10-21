@@ -12,6 +12,12 @@ export function workerStore({ db, projectId, idToken, fetchImpl = fetch }) {
       const d = await getUserDoc(projectId, idToken, `users/${uid}/story/items`, fetchImpl);
       return d ? { consent: d.consent === true, items: d.items ?? [] } : null;
     },
+    async getDraw(uid, drawId) {
+      if (!/^[A-Za-z0-9_-]{1,40}$/.test(drawId)) return null;
+      const d = await getUserDoc(projectId, idToken, `users/${uid}/draws/${drawId}`, fetchImpl);
+      if (!d?.facts) return null;
+      try { return { facts: JSON.parse(d.facts) }; } catch { return null; }
+    },
     async reserve(uid, day, mode, limit) {
       // Atomic: increments only while under the limit; returns no row when the limit is reached.
       const row = await db.prepare(
@@ -33,6 +39,31 @@ export function workerStore({ db, projectId, idToken, fetchImpl = fetch }) {
     async globalSpend(day) {
       const r = await db.prepare("SELECT usd FROM spend WHERE day = ?1").bind(day).first();
       return r?.usd ?? 0;
+    },
+  };
+}
+
+/** Usage events, feedback and account deletion (all keyed by the anonymous Firebase uid). */
+export function workerExtras(db) {
+  return {
+    async eventsToday(uid, day) {
+      const r = await db.prepare("SELECT COUNT(*) AS n FROM events WHERE uid = ?1 AND day = ?2").bind(uid, day).first();
+      return r?.n ?? 0;
+    },
+    async addEvents(uid, app, list, dayOf) {
+      if (!list.length) return;
+      await db.batch(list.map(e => db.prepare("INSERT INTO events (uid, at, day, name, props, app) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+        .bind(uid, e.at, dayOf(new Date(e.at)), e.name, JSON.stringify(e.props), app)));
+    },
+    async feedbackToday(uid, day) {
+      const r = await db.prepare("SELECT COUNT(*) AS n FROM feedback WHERE uid = ?1 AND substr(at, 1, 10) = ?2").bind(uid, day).first();
+      return r?.n ?? 0;
+    },
+    async addFeedback(uid, app, text, at) {
+      await db.prepare("INSERT INTO feedback (uid, at, text, app) VALUES (?1, ?2, ?3, ?4)").bind(uid, at, text, app).run();
+    },
+    async deleteUser(uid) {
+      await db.batch(["usage", "user_cost", "events", "feedback"].map(t => db.prepare(`DELETE FROM ${t} WHERE uid = ?1`).bind(uid)));
     },
   };
 }

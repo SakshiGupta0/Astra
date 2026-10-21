@@ -38,6 +38,8 @@ class CoreSuite(private val fixtures: File) {
         story()
         facts()
         notifications()
+        tarot()
+        loops()
         println("\nASTRA core ${CoreVersion.CORE} | ${CoreVersion.CALC}")
         notes.forEach { println("  note: $it") }
         println("PASSED $passed  FAILED ${failures.size}")
@@ -410,6 +412,113 @@ class CoreSuite(private val fixtures: File) {
         check("notify: no fear words in ${texts.size} notification strings", texts.none { banned.containsMatchIn(it) }) { texts.filter { banned.containsMatchIn(it) }.take(2).toString() }
         check("notify: quiet hours move 23:00 to 07:00", NotifyPlanner.fireTime(prefs.copy(time = LocalTime.of(23, 0))) == LocalTime.of(7, 0))
         check("notify: 07:30 unchanged", NotifyPlanner.fireTime(prefs) == LocalTime.of(7, 30))
+    }
+
+    // ---- 14. Tarot ---------------------------------------------------------------------------
+    private fun tarot() {
+        val deck = Tarot.deck
+        check("tarot: 78 cards", deck.size == 78)
+        check("tarot: 22 majors, 14 per suit", deck.count { it.arcana == Arcana.MAJOR } == 22 && Suit.entries.all { s -> deck.count { it.suit == s } == 14 })
+        check("tarot: unique ids and names", deck.map { it.id }.toSet().size == 78 && deck.map { it.name }.toSet().size == 78)
+        check("tarot: every card has both meanings", deck.all { it.upright.isNotBlank() && it.reversed.isNotBlank() && it.upright != it.reversed })
+        check("tarot: court names", Tarot.card("cups11").name == "Page of Cups" && Tarot.card("swords14").name == "King of Swords" && Tarot.card("maj13").name == "Death")
+        val banned = Regex("\\b(good|bad|unlucky|lucky|danger|dangerous|dosha|curse|cursed|doom|warning|evil)\\b", RegexOption.IGNORE_CASE)
+        val bad = Tarot.allText().filter { banned.containsMatchIn(it) }
+        check("tarot: no banned words in ${Tarot.allText().size} strings", bad.isEmpty()) { bad.take(3).toString() }
+        // Draws: no repeats in a spread, positions match, roughly half reversed, every card reachable, uniform-ish
+        val rng = java.util.Random(42)
+        val counts = IntArray(78); var reversed = 0; var total = 0; var dup = 0
+        repeat(20000) {
+            val d = Tarot.draw(Spread.THREE, "q", Instant.EPOCH, rng)
+            if (d.cards.map { it.cardId }.toSet().size != 3) dup++
+            d.cards.forEach { c -> counts[deck.indexOfFirst { it.id == c.cardId }]++; total++; if (c.reversed) reversed++ }
+        }
+        check("tarot: no repeated card within a spread", dup == 0)
+        check("tarot: every card drawn", counts.all { it > 0 })
+        val exp = total / 78.0
+        check("tarot: draws are uniform (each card within 15% of expected)", counts.all { kotlin.math.abs(it - exp) / exp < 0.15 }) { "min ${counts.minOrNull()} max ${counts.maxOrNull()} exp $exp" }
+        check("tarot: about half reversed", kotlin.math.abs(reversed.toDouble() / total - 0.5) < 0.02)
+        val three = Tarot.draw(Spread.THREE, "Should I take the offer?", Instant.parse("2026-10-21T10:00:00Z"))
+        check("tarot: three positions in order", three.cards.map { it.position } == Spread.THREE.positions)
+        check("tarot: deck version stamped", three.deckVersion == Tarot.DECK_VERSION)
+        val back = DrawCodec.decode(DrawCodec.encode(three))
+        check("tarot: draw round-trips exactly", back == three)
+        check("tarot: corrupt draw rejected", DrawCodec.decode("{\"id\":\"x\",\"spread\":\"ONE\",\"cards\":[{\"id\":\"nope\",\"rev\":false,\"pos\":\"a\"}],\"deck\":\"d\",\"at\":\"2026-01-01T00:00:00Z\"}") == null)
+        // Daily card: one per day, kept for the day, new the next day
+        val day = LocalDate.of(2026, 10, 21)
+        val d1 = Tarot.daily(null, day)
+        check("tarot: daily card kept for the day", Tarot.daily(d1, day) === d1 && d1.day == day && d1.cards.size == 1)
+        check("tarot: new daily card next day", Tarot.daily(d1, day.plusDays(1)).let { it.day == day.plusDays(1) && it.id != d1.id })
+        // Facts for the AI: card names, orientation, keywords
+        val f = Tarot.facts(three)
+        @Suppress("UNCHECKED_CAST") val cards = f["cards"] as List<Map<String, Any?>>
+        check("tarot: facts list each card with orientation", cards.size == 3 && cards.all { it["orientation"] in listOf("upright", "reversed") && Tarot.deck.any { c -> c.name == it["card"] } })
+        check("tarot: summary attributes meanings to tarot", Tarot.summary(three).lines().all { it.contains("in tarot") })
+        // Readings keep their draw
+        val r = Reading("r1", "tarot", "q", "a", emptyList(), "en", "m", "p", Instant.parse("2026-10-21T10:00:00Z"), three, 4)
+        val rb = ReadingCodec.decode(ReadingCodec.encode(listOf(r)))
+        check("tarot: saved reading keeps draw and rating", rb.size == 1 && rb[0].draw == three && rb[0].rating == 4)
+        val old = ReadingCodec.decode("[{\"id\":\"a\",\"type\":\"ask\",\"q\":\"q\",\"a\":\"a\",\"at\":\"2026-01-01T00:00:00Z\"}]")
+        check("tarot: older saved readings still load", old.size == 1 && old[0].draw == null)
+    }
+
+    // ---- 15. Loops: check-ins, life events, survey ---------------------------------------------
+    private fun loops() {
+        val start = LocalDate.of(2026, 10, 1)
+        var s = StoryRules.grant(Story(), "onboarding", Instant.parse("2026-10-01T05:00:00Z"))
+        s = StoryRules.addThread(s, "Deciding on a job offer", today = start)
+        s = StoryRules.addThread(s, "Planning a move", today = start.plusDays(2))
+        check("checkin: not due before 3 weeks", StoryRules.rollCheckins(s, start.plusDays(20)).second == null)
+        val (s1, t1) = StoryRules.rollCheckins(s, start.plusDays(21))
+        check("checkin: due at 3 weeks, oldest first", t1?.title == "Deciding on a job offer" && t1.checkinPending)
+        check("checkin: at most one a day", StoryRules.rollCheckins(s1, start.plusDays(21)).second == null)
+        val (s2, t2) = StoryRules.rollCheckins(s1, start.plusDays(23))
+        check("checkin: second thread on a later day", t2?.title == "Planning a move")
+        check("checkin: both pending", StoryRules.pendingCheckins(s2).size == 2)
+        check("checkin: a pending thread isn't asked again", StoryRules.rollCheckins(s2, start.plusDays(40)).second == null)
+        val jobId = t1!!.id
+        val s3 = StoryRules.answerCheckin(s2, jobId, CheckinAnswer.STILL_OPEN, "Waiting for the final offer letter", start.plusDays(24))
+        val job3 = s3.threads.first { it.id == jobId }
+        check("checkin: still open saves the update and reschedules", !job3.checkinPending && job3.lastUpdate.startsWith("Waiting") && job3.nextCheckin == start.plusDays(45))
+        check("checkin: update reaches the AI items", StoryRules.items(s3).any { it.text.contains("Latest update") && it.text.contains("offer letter") })
+        check("checkin: not asked again within the gap", StoryRules.rollCheckins(s3, start.plusDays(44)).let { (_, t) -> t?.id != jobId })
+        val s4 = StoryRules.answerCheckin(s3, jobId, CheckinAnswer.RESOLVED, "Took the new job", start.plusDays(30))
+        check("checkin: resolved saves the outcome", s4.threads.first { it.id == jobId }.let { it.status == ThreadStatus.RESOLVED && it.outcome == "Took the new job" })
+        check("checkin: resolved thread never asked again", (0..200).none { StoryRules.rollCheckins(s4.copy(checkinRolledOn = null), start.plusDays(it.toLong())).second?.id == jobId })
+        check("checkin: off when My Story is off", StoryRules.rollCheckins(StoryRules.revoke(s), start.plusDays(30)).second == null && StoryRules.pendingCheckins(StoryRules.revoke(s2)).isEmpty())
+        check("checkin: off when the gap is 0", StoryRules.rollCheckins(s.copy(checkinDays = 0), start.plusDays(60)).second == null)
+        check("checkin: question wording", StoryRules.checkinQuestion(t1, start.plusDays(21)) == "3 weeks ago you added \"Deciding on a job offer\" to your story. What's happened since?") { StoryRules.checkinQuestion(t1, start.plusDays(21)) }
+        val dismissed = StoryRules.answerCheckin(s2, jobId, CheckinAnswer.DISMISSED, "", start.plusDays(22)).threads.first { it.id == jobId }
+        check("checkin: dismiss clears without changing status", !dismissed.checkinPending && dismissed.status == ThreadStatus.OPEN && dismissed.lastCheckin == null)
+        val rt = StoryCodec.decode(StoryCodec.encode(s3.copy(surveyAnswer = 4, surveyAskedOn = start.plusDays(15))))
+        check("checkin: story round-trips check-in fields", rt == s3.copy(surveyAnswer = 4, surveyAskedOn = start.plusDays(15)))
+        check("checkin: older stories load with defaults", StoryCodec.decode("{\"v\":1,\"threads\":[{\"id\":\"a\",\"title\":\"t\",\"status\":\"OPEN\",\"created\":\"2026-01-01\"}]}")?.let { it.checkinDays == 21 && !it.threads[0].checkinPending } == true)
+        // Notifications: check-in posted with its own toggle; no fear words
+        val z = ZoneId.of("Asia/Kolkata")
+        val chart = ChartCalculator.compute(BirthInput(LocalDate.of(1995, 2, 14), LocalTime.of(11, 5), BirthTimeStatus.KNOWN, 0, 12.9716, 77.5946, "Asia/Kolkata"))
+        val tl = Tracker(chart).timeline(Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2027-11-01T00:00:00Z"))
+        val n = NotifyPlanner.forDay(start.plusDays(21), z, NotifyPrefs(), tl, null, 3, emptySet(), 0, t1)
+        check("checkin: notice posted", n.count { it.kind == NotifyKind.CHECKIN } == 1 && n.first { it.kind == NotifyKind.CHECKIN }.body.contains("job offer"))
+        check("checkin: toggle off means no notice", NotifyPlanner.forDay(start.plusDays(21), z, NotifyPrefs(checkins = false), tl, null, 3, emptySet(), 0, t1).none { it.kind == NotifyKind.CHECKIN })
+        // Survey once, after two weeks
+        check("survey: not before two weeks", !StoryRules.surveyDue(s, start.plusDays(13)))
+        check("survey: due at two weeks", StoryRules.surveyDue(s, start.plusDays(14)))
+        check("survey: asked only once", !StoryRules.surveyDue(s.copy(surveyAskedOn = start.plusDays(14)), start.plusDays(30)))
+        check("survey: not without My Story", !StoryRules.surveyDue(Story(), start.plusDays(30)))
+        // Life events: chart at that time agrees with the live tracker
+        val now = Instant.parse("2026-12-15T06:30:00Z")
+        val m = ChartAt.of(chart, now)
+        val live = Tracker(chart).now(now)
+        check("events: Jupiter and Saturn houses match the tracker", m.jupiterHouse == live.first { it.graha == Graha.JUPITER }.houseFromMoon && m.saturnHouse == live.first { it.graha == Graha.SATURN }.houseFromMoon)
+        val seg = tl.tone.first { !now.isBefore(it.start) && now.isBefore(it.end) }
+        check("events: tone matches the timeline", m.tone == seg.tone)
+        check("events: dasha matches", m.maha == chart.dasha.at(now)!!.maha.lord && m.antar == chart.dasha.at(now)!!.antar.lord)
+        val past = ChartAt.ofMonth(chart, java.time.YearMonth.of(2019, 6), z)
+        check("events: past month works (2019)", past.lines().size == 5 && past.at.atZone(z).toLocalDate() == LocalDate.of(2019, 6, 15))
+        val evBanned = Regex("\\b(good|bad|unlucky|lucky|danger|dangerous|dosha|curse|doom)\\b", RegexOption.IGNORE_CASE)
+        var y = java.time.YearMonth.of(1990, 1); val evTexts = ArrayList<String>()
+        while (y.isBefore(java.time.YearMonth.of(2030, 1))) { evTexts += ChartAt.ofMonth(chart, y, z).lines(); y = y.plusMonths(7) }
+        check("events: no banned words in life-event lines", evTexts.none { evBanned.containsMatchIn(it) })
     }
 }
 

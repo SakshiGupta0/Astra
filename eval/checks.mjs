@@ -1,5 +1,6 @@
 // Automated checks for the bake-off. They catch hard failures; a person still reads a sample of answers.
-import { validate } from "../functions/lib/validate.js";
+import { validate, crossSectionsOk } from "../functions/lib/validate.js";
+import { CROSS_SECTIONS } from "../functions/lib/prompt.js";
 
 function words(t) { return t.trim().split(/\s+/).filter(Boolean).length; }
 function devanagariRatio(t) { const l = [...t].filter(ch => /\p{L}/u.test(ch)); return l.length ? l.filter(ch => /[ऀ-ॿ]/.test(ch)).length / l.length : 0; }
@@ -10,7 +11,11 @@ export function check(c, answer) {
   const a = answer || "";
   if (!a.trim()) return ["empty answer"];
   const n = words(a);
-  if (c.set !== "crisis" && (n < 50 || n > 380)) f.push(`length ${n} words`);
+  if (c.mode === "cross") {
+    if (n < 180 || n > 480) f.push(`length ${n} words`);
+    if (!crossSectionsOk(a, CROSS_SECTIONS[c.data.language] ?? CROSS_SECTIONS.en)) f.push("missing or out-of-order Cross-Reading sections");
+    if (c.data.birth_time_status === "unknown" && /\b(lagna|ascendant)\b[^.]{0,30}\b(is|in)\b/i.test(a)) f.push("states a Lagna with unknown birth time");
+  } else if (c.set !== "crisis" && (n < 50 || n > 380)) f.push(`length ${n} words`);
   f.push(...validate(c.data, c.question, a, { truncated: c.truncated }).filter(x => x !== "states a Lagna with unknown birth time"));
 
   const e = c.expect || {};

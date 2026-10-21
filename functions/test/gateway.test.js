@@ -102,3 +102,70 @@ test("today line: one per day, uses open threads", async () => {
   assert.deepEqual(r.storyUsed, ["thread.a"]);
   await assert.rejects(handle({ uid: "u1", mode: "today_line" }, deps(store, llm)), (e) => e.code === "resource-exhausted");
 });
+
+// ---- Tarot and Cross-Reading (M4) ----
+const DRAW = { facts: { deck_version: "astra-deck-1", spread: "Three cards", question: "Should I take the offer?", cards: [
+  { position: "What's behind it", card: "Eight of Pentacles", orientation: "upright", keywords: "craft, diligence, skill-building" },
+  { position: "Where you are", card: "The Hermit", orientation: "reversed", keywords: "isolation, or avoiding needed time alone" },
+  { position: "What can help", card: "Ace of Cups", orientation: "upright", keywords: "new feelings, openness, emotional beginnings" }] } };
+const TAROT_OK = "In tarot, the Eight of Pentacles in the first position speaks of patient craft behind this question. The Hermit reversed, where you are, can point to pulling away from the quiet thinking a decision needs. The Ace of Cups, what can help, is an opening of feeling. Something to reflect on: what does your heart say when you imagine saying yes?";
+const CROSS_OK = "Your chart: You are in the Mercury mahadasha with the Venus sub-period until June 2028, and the tone is mixed.\nYour cards: In tarot, the Eight of Pentacles shows steady craft, The Hermit reversed asks for quiet reflection, and the Ace of Cups opens feeling.\nWhere they meet: Both point to patient, skill-based effort.\nWhere they differ: The chart describes a long period; the cards speak to how you feel now.\nQuestions to sit with: What would steady effort look like this month? What does your heart want?";
+const withDraw = (o = {}) => ({ ...fakeStore(o), getDraw: async (uid, id) => (id === "d1" ? DRAW : null) });
+
+test("tarot reads the saved draw, counts as a message, and gets no chart facts", async () => {
+  const store = withDraw(); const llm = llmReturning(TAROT_OK);
+  const r = await handle({ uid: "u1", mode: "tarot", drawId: "d1" }, deps(store, llm));
+  assert.equal(r.safety, "ok"); assert.equal(r.mode, "tarot"); assert.equal(r.remaining, LIMITS.ask - 1);
+  const user = llm.calls[0].user;
+  assert.match(user, /The Hermit/); assert.match(user, /Should I take the offer\?/);
+  assert.doesNotMatch(user, /Vrishchika|mahadasha|placements/);
+  assert.match(llm.calls[0].system, /TAROT READING/);
+});
+
+test("tarot refuses a draw that isn't saved, or cards outside the deck", async () => {
+  await assert.rejects(handle({ uid: "u1", mode: "tarot", drawId: "nope" }, deps(withDraw(), llmReturning(TAROT_OK))), (e) => e.code === "failed-precondition");
+  const fake = { ...fakeStore(), getDraw: async () => ({ facts: { cards: [{ position: "x", card: "The Unicorn", orientation: "upright" }] } }) };
+  await assert.rejects(handle({ uid: "u1", mode: "tarot", drawId: "d1" }, deps(fake, llmReturning(TAROT_OK))), (e) => e.code === "failed-precondition");
+});
+
+test("an answer naming a card that wasn't drawn is retried", async () => {
+  const llm = llmReturning(TAROT_OK + " The Tower also suggests upheaval.", TAROT_OK);
+  const r = await handle({ uid: "u1", mode: "tarot", drawId: "d1" }, deps(withDraw(), llm));
+  assert.equal(r.safety, "ok"); assert.equal(llm.calls.length, 2); assert.match(llm.calls[1].user, /card not drawn: The Tower/);
+});
+
+test("'the Moon' as a planet in a Cross-Reading is not mistaken for a card", async () => {
+  const text = CROSS_OK.replace("and the tone is mixed.", "and the Moon is in Vrishchika; the tone is mixed.");
+  const r = await handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(withDraw(), llmReturning(text)));
+  assert.equal(r.safety, "ok");
+});
+
+test("Cross-Reading: five sections, own cap of 2, chart and cards both in DATA", async () => {
+  const store = withDraw(); const llm = llmReturning(CROSS_OK);
+  const r1 = await handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(store, llm));
+  assert.equal(r1.safety, "ok"); assert.equal(r1.remaining, 1);
+  assert.match(llm.calls[0].user, /Vrishchika/); assert.match(llm.calls[0].user, /Ace of Cups/);
+  assert.match(llm.calls[0].system, /Where they differ:/);
+  await handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(store, llm));
+  await assert.rejects(handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(store, llm)), (e) => e.code === "resource-exhausted" && /Cross-Readings/.test(e.message));
+  // the 15 questions are untouched
+  const a = await handle({ uid: "u1", question: "Tell me about my Moon" }, deps(store, llmReturning(GOOD)));
+  assert.equal(a.remaining, LIMITS.ask - 1);
+});
+
+test("Cross-Reading missing a section falls back and doesn't use up a reading", async () => {
+  const store = withDraw(); const broken = CROSS_OK.replace("Where they differ:", "Differences:");
+  const r = await handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(store, llmReturning(broken, broken)));
+  assert.equal(r.safety, "fallback"); assert.equal(r.remaining, 2);
+});
+
+test("Cross-Reading needs exactly three cards", async () => {
+  const one = { ...fakeStore(), getDraw: async () => ({ facts: { cards: [DRAW.facts.cards[0]] } }) };
+  await assert.rejects(handle({ uid: "u1", mode: "cross", drawId: "d1" }, deps(one, llmReturning(CROSS_OK))), (e) => e.code === "failed-precondition");
+});
+
+test("crisis words in a tarot question get care, not a reading", async () => {
+  const llm = llmReturning(TAROT_OK);
+  const r = await handle({ uid: "u1", mode: "tarot", drawId: "d1", question: "I want to end my life, what do the cards say" }, deps(withDraw(), llm));
+  assert.equal(r.safety, "crisis"); assert.equal(llm.calls.length, 0);
+});

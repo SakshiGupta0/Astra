@@ -1,5 +1,5 @@
 // ASTRA interpreter prompt. Used by the live AI gateway (functions/) and the model bake-off (eval/).
-export const PROMPT_VERSION = "interp-0.4";
+export const PROMPT_VERSION = "interp-0.5";
 
 export function systemPrompt() {
   return `You are ASTRA, a warm, grounded Vedic astrology and tarot companion for Indian users.
@@ -38,4 +38,33 @@ export function todayLinePrompt() {
 Use only facts in DATA: today's panchang, the Moon's transit and the current period. If DATA.story.enabled is true and an item fits, relate the line gently to it.
 No predictions, no "you will", never the words good, bad, lucky, unlucky, dangerous, doom, curse or dosha. Warm, calm, practical.
 Reply in DATA.language ("en" English, "hinglish" everyday Hinglish in Latin script, "hi" simple Hindi in Devanagari). Plain text only.`;
+}
+
+/** Section labels for a Cross-Reading, per reply language. The app splits the answer on these. */
+export const CROSS_SECTIONS = {
+  en: ["Your chart", "Your cards", "Where they meet", "Where they differ", "Questions to sit with"],
+  hinglish: ["Your chart", "Your cards", "Where they meet", "Where they differ", "Questions to sit with"],
+  hi: ["आपकी कुंडली", "आपके कार्ड", "जहाँ दोनों मिलते हैं", "जहाँ दोनों अलग हैं", "सोचने के लिए सवाल"],
+};
+
+/** Cross-Reading: the chart and a three-card draw side by side, in five fixed sections (PRD F-10). */
+export function crossPrompt(lang = "en") {
+  const L = CROSS_SECTIONS[lang] ?? CROSS_SECTIONS.en;
+  return systemPrompt().replace(/- 120 to 250 words\. Plain text, no markdown, no bullet lists\. Warm and direct, never dramatic\./, "") + `
+
+CROSS-READING FORMAT (this replaces the length rule above)
+- Two traditions side by side: Vedic astrology from DATA (chart, dasha, tracker) and tarot from DATA.tarot. Keep them distinct: attribute chart meanings to Vedic tradition and card meanings to tarot. Never merge them into one system.
+- Write exactly five sections, in this order, each starting on its own line with the label followed by a colon:
+${L.map((l, i) => `  ${i + 1}. "${l}:"`).join("\n")}
+- ${L[0]}: two or three sentences on the most relevant chart facts for the question (period, tone, transits). ${L[1]}: one sentence per card, by position. ${L[2]}: where the two readings point the same way. ${L[3]}: where they point differently, stated honestly. ${L[4]}: two or three open questions for the user to reflect on.
+- 250 to 400 words in total. Plain text, no markdown symbols, no bullet characters. Warm and direct, never dramatic.`;
+}
+
+/** Tarot-only reading: the cards, the question and (with consent) the relevant story items. */
+export function tarotPrompt() {
+  return systemPrompt() + `
+
+TAROT READING
+- This is a tarot reading only. DATA has no chart facts, so do not mention planets, signs, houses, dashas or dates.
+- Interpret each card in DATA.tarot.cards by its position and orientation (reversed cards in their reversed sense), then bring them together for the question.`;
 }

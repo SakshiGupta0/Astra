@@ -16,12 +16,14 @@ data class NotifyPrefs(
     val events: Boolean = true,
     /** Alerts when the period tone turns demanding: separate opt-in, off by default. */
     val demandingAlerts: Boolean = false,
+    /** Follow-ups on open questions in My Story. */
+    val checkins: Boolean = true,
     val time: LocalTime = LocalTime.of(7, 30),
     val quietStart: LocalTime = LocalTime.of(22, 0),
     val quietEnd: LocalTime = LocalTime.of(7, 0)
 )
 
-enum class NotifyKind { DAILY, WEEKLY, EVENT }
+enum class NotifyKind { DAILY, WEEKLY, EVENT, CHECKIN }
 
 data class PlannedNotice(val kind: NotifyKind, val key: String, val title: String, val body: String, val priority: Int = 0)
 
@@ -54,7 +56,9 @@ object NotifyPlanner {
      */
     fun forDay(
         date: LocalDate, zone: ZoneId, prefs: NotifyPrefs, timeline: Timeline, panchang: Panchang?,
-        moonHouseFromMoon: Int?, alreadySentEventKeys: Set<String>, eventAlertsThisWeek: Int
+        moonHouseFromMoon: Int?, alreadySentEventKeys: Set<String>, eventAlertsThisWeek: Int,
+        /** Thread whose check-in started today (from StoryRules.rollCheckins). */
+        checkin: StoryThread? = null
     ): List<PlannedNotice> {
         val out = ArrayList<PlannedNotice>()
         val sunday = date.dayOfWeek == DayOfWeek.SUNDAY
@@ -80,6 +84,8 @@ object NotifyPlanner {
             val room = (MAX_EVENT_ALERTS_PER_WEEK - eventAlertsThisWeek).coerceAtLeast(0)
             out += candidates.sortedByDescending { it.second }.take(room).map { it.first }
         }
+        if (prefs.checkins && checkin != null)
+            out += PlannedNotice(NotifyKind.CHECKIN, "checkin:${checkin.id}:$date", "Any update?", "On your story: ${checkin.title}. Tap to add what's happened.")
         return out
     }
 

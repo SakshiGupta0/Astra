@@ -44,8 +44,17 @@ data class StoryThread(
     val area: LifeArea? = null,
     val status: ThreadStatus = ThreadStatus.OPEN,
     val createdOn: LocalDate,
-    val outcome: String = ""
+    val outcome: String = "",
+    /** When ASTRA next asks how it's going (null = createdOn + the story's check-in gap). */
+    val nextCheckin: LocalDate? = null,
+    /** A check-in has been asked and not answered yet. */
+    val checkinPending: Boolean = false,
+    /** The user's latest one-line update while the thread is still open. */
+    val lastUpdate: String = "",
+    val lastCheckin: LocalDate? = null
 )
+
+enum class CheckinAnswer { RESOLVED, STILL_OPEN, DISMISSED }
 
 data class LifeEvent(val id: String, val title: String, val month: YearMonth, val note: String = "")
 
@@ -60,7 +69,14 @@ data class Story(
     val events: List<LifeEvent> = emptyList(),
     val digests: List<ReadingDigest> = emptyList(),
     /** How many times the offer has been shown (onboarding = 1, after first saved reading = 2). */
-    val offersShown: Int = 0
+    val offersShown: Int = 0,
+    /** Days between check-ins on an open thread; 0 turns check-ins off. */
+    val checkinDays: Int = StoryRules.DEFAULT_CHECKIN_DAYS,
+    /** Last day a check-in was started (at most one a day). */
+    val checkinRolledOn: LocalDate? = null,
+    /** Answer to "ASTRA already knew my situation" (1 disagree .. 5 agree), asked once after two weeks. */
+    val surveyAnswer: Int? = null,
+    val surveyAskedOn: LocalDate? = null
 ) {
     val enabled: Boolean get() = consent?.granted == true
     val isEmpty: Boolean get() = about == StoryAbout() && threads.isEmpty() && events.isEmpty() && digests.isEmpty()
@@ -76,6 +92,8 @@ object StoryRules {
     const val MAX_EVENTS = 100
     const val MAX_DIGESTS = 50
     const val MAX_ITEMS_PER_ANSWER = 6
+    const val DEFAULT_CHECKIN_DAYS = 21
+    val CHECKIN_CHOICES = listOf(7, 14, 21, 30, 0)
 
     fun newId(): String = UUID.randomUUID().toString().substring(0, 12)
     fun clip(s: String) = s.trim().replace(Regex("\\s+"), " ").take(MAX_TEXT)
@@ -117,7 +135,8 @@ object StoryRules {
         story.threads.forEach { t ->
             out += StoryItem("thread.${t.id}", "thread",
                 "${if (t.status == ThreadStatus.OPEN) "Open question" else "Resolved"} (since ${t.createdOn}): ${t.title}" +
-                    (if (t.note.isNotBlank()) " — ${t.note}" else "") + (if (t.outcome.isNotBlank()) " Outcome: ${t.outcome}" else ""))
+                    (if (t.note.isNotBlank()) " — ${t.note}" else "") + (if (t.outcome.isNotBlank()) " Outcome: ${t.outcome}" else "") +
+                    (if (t.status == ThreadStatus.OPEN && t.lastUpdate.isNotBlank()) " Latest update (${t.lastCheckin ?: ""}): ${t.lastUpdate}" else ""))
         }
         story.events.forEach { e -> out += StoryItem("event.${e.id}", "event", "Life event (${e.month}): ${e.title}" + if (e.note.isNotBlank()) " — ${e.note}" else "") }
         story.digests.take(10).forEach { d -> out += StoryItem("digest.${d.id}", "digest", "Earlier reading (${d.date}): ${d.text}") }
@@ -141,6 +160,57 @@ object StoryRules {
         if ("about.areas" in all && qAreas.isEmpty()) picked += "about.areas"
         openThreads.forEach { picked += "thread.${it.id}" }
         return picked.mapNotNull { all[it] }.take(max)
+    }
+
+    fun checkinDue(story: Story, t: StoryThread): LocalDate = t.nextCheckin ?: t.createdOn.plusDays(story.checkinDays.toLong().coerceAtLeast(1))
+
+    /**
+     * Once a day: if an open thread's check-in is due, mark it pending and schedule the next one a full gap later.
+     * Returns the updated story and the thread to ask about (to notify), or null. At most one thread a day,
+     * so the user never gets more than one check-in a day and never more than one per thread per gap.
+     */
+    fun rollCheckins(story: Story, today: LocalDate): Pair<Story, StoryThread?> {
+        if (!story.enabled || story.checkinDays <= 0 || story.checkinRolledOn == today) return story to null
+        val due = story.threads.filter { it.status == ThreadStatus.OPEN && !it.checkinPending && !checkinDue(story, it).isAfter(today) }
+            .minByOrNull { checkinDue(story, it) } ?: return story to null
+        val rolled = due.copy(checkinPending = true, nextCheckin = today.plusDays(story.checkinDays.toLong()))
+        return story.copy(threads = story.threads.map { if (it.id == due.id) rolled else it }, checkinRolledOn = today) to rolled
+    }
+
+    /** Threads waiting for an answer, shown on Today. Only while My Story is on. */
+    fun pendingCheckins(story: Story): List<StoryThread> =
+        if (!story.enabled) emptyList() else story.threads.filter { it.status == ThreadStatus.OPEN && it.checkinPending }
+
+    fun answerCheckin(story: Story, id: String, answer: CheckinAnswer, text: String, today: LocalDate): Story {
+        val note = clip(text)
+        return story.copy(threads = story.threads.map { t ->
+            if (t.id != id) t else when (answer) {
+                CheckinAnswer.RESOLVED -> t.copy(status = ThreadStatus.RESOLVED, outcome = note.ifBlank { t.outcome }, checkinPending = false, lastCheckin = today)
+                CheckinAnswer.STILL_OPEN -> t.copy(lastUpdate = note.ifBlank { t.lastUpdate }, checkinPending = false, lastCheckin = today,
+                    nextCheckin = today.plusDays(story.checkinDays.toLong().coerceAtLeast(1)))
+                CheckinAnswer.DISMISSED -> t.copy(checkinPending = false, nextCheckin = today.plusDays(story.checkinDays.toLong().coerceAtLeast(1)))
+            }
+        })
+    }
+
+    /** "Three weeks ago you added …" — the check-in question. */
+    fun checkinQuestion(t: StoryThread, today: LocalDate): String {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(t.lastCheckin ?: t.createdOn, today)
+        val ago = when {
+            days < 2 -> "Recently"
+            days < 14 -> "$days days ago"
+            days < 60 -> "${days / 7} weeks ago"
+            else -> "${days / 30} months ago"
+        }
+        return if (t.lastCheckin == null) "$ago you added \"${t.title}\" to your story. What's happened since?"
+        else "$ago you said \"${t.title}\" was still open. Any update?"
+    }
+
+    /** The repeat-story survey is asked once, two weeks after My Story was turned on. */
+    fun surveyDue(story: Story, today: LocalDate): Boolean {
+        val since = story.consent?.takeIf { it.granted }?.at ?: return false
+        if (story.surveyAskedOn != null || story.surveyAnswer != null) return false
+        return java.time.temporal.ChronoUnit.DAYS.between(since.atZone(java.time.ZoneOffset.UTC).toLocalDate(), today) >= 14
     }
 
     /** Shareable summary for a human astrologer, with only the parts the user picks. */
@@ -191,10 +261,13 @@ object StoryCodec {
         "v" to 1,
         "consent" to s.consent?.let { mapOf("granted" to it.granted, "copy" to it.copyVersion, "at" to it.at.toString(), "offer" to it.offerPoint) },
         "about" to mapOf("stage" to s.about.lifeStage?.name, "areas" to s.about.areas.map { it.name }, "now" to s.about.nowLine),
-        "threads" to s.threads.map { mapOf("id" to it.id, "title" to it.title, "note" to it.note, "area" to it.area?.name, "status" to it.status.name, "created" to it.createdOn.toString(), "outcome" to it.outcome) },
+        "threads" to s.threads.map { mapOf("id" to it.id, "title" to it.title, "note" to it.note, "area" to it.area?.name, "status" to it.status.name, "created" to it.createdOn.toString(), "outcome" to it.outcome,
+            "next" to it.nextCheckin?.toString(), "pending" to it.checkinPending, "update" to it.lastUpdate, "lastCheck" to it.lastCheckin?.toString()) },
         "events" to s.events.map { mapOf("id" to it.id, "title" to it.title, "month" to it.month.toString(), "note" to it.note) },
         "digests" to s.digests.map { mapOf("id" to it.id, "date" to it.date.toString(), "text" to it.text) },
-        "offers" to s.offersShown
+        "offers" to s.offersShown,
+        "checkinDays" to s.checkinDays, "rolled" to s.checkinRolledOn?.toString(),
+        "survey" to s.surveyAnswer, "surveyAsked" to s.surveyAskedOn?.toString()
     ))
 
     @Suppress("UNCHECKED_CAST")
@@ -212,7 +285,9 @@ object StoryCodec {
             ),
             threads = ((m["threads"] as List<Map<String, Any?>>?) ?: emptyList()).map {
                 StoryThread(it["id"] as String, it["title"] as String, (it["note"] as String?) ?: "", enumOrNull(LifeArea.values(), it["area"]),
-                    enumOrNull(ThreadStatus.values(), it["status"]) ?: ThreadStatus.OPEN, LocalDate.parse(it["created"] as String), (it["outcome"] as String?) ?: "")
+                    enumOrNull(ThreadStatus.values(), it["status"]) ?: ThreadStatus.OPEN, LocalDate.parse(it["created"] as String), (it["outcome"] as String?) ?: "",
+                    (it["next"] as String?)?.let { d -> LocalDate.parse(d) }, it["pending"] == true, (it["update"] as String?) ?: "",
+                    (it["lastCheck"] as String?)?.let { d -> LocalDate.parse(d) })
             },
             events = ((m["events"] as List<Map<String, Any?>>?) ?: emptyList()).map {
                 LifeEvent(it["id"] as String, it["title"] as String, YearMonth.parse(it["month"] as String), (it["note"] as String?) ?: "")
@@ -220,7 +295,11 @@ object StoryCodec {
             digests = ((m["digests"] as List<Map<String, Any?>>?) ?: emptyList()).map {
                 ReadingDigest(it["id"] as String, LocalDate.parse(it["date"] as String), it["text"] as String)
             },
-            offersShown = ((m["offers"] as Number?) ?: 0).toInt()
+            offersShown = ((m["offers"] as Number?) ?: 0).toInt(),
+            checkinDays = ((m["checkinDays"] as Number?) ?: StoryRules.DEFAULT_CHECKIN_DAYS).toInt(),
+            checkinRolledOn = (m["rolled"] as String?)?.let { LocalDate.parse(it) },
+            surveyAnswer = (m["survey"] as Number?)?.toInt(),
+            surveyAskedOn = (m["surveyAsked"] as String?)?.let { LocalDate.parse(it) }
         )
     } catch (e: Exception) { null }
 }

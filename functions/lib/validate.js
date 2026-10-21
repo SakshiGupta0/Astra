@@ -7,9 +7,13 @@ const SIGN_PAIRS = { Aries: "Mesha", Taurus: "Vrishabha", Gemini: "Mithuna", Can
 export const NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha",
   "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha",
   "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"];
-export const CARDS = ["The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor", "The Hierophant", "The Lovers", "The Chariot",
+export const MAJORS = ["The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor", "The Hierophant", "The Lovers", "The Chariot",
   "Strength", "The Hermit", "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance", "The Devil", "The Tower", "The Star",
   "The Moon", "The Sun", "Judgement", "The World"];
+const RANKS = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Page", "Knight", "Queen", "King"];
+export const CARDS = [...MAJORS, ...["Wands", "Cups", "Swords", "Pentacles"].flatMap(s => RANKS.map(r => `${r} of ${s}`))];
+/** Card names that are also ordinary words or planets ("the Moon is in your 10th"): only checked when called a card. */
+const AMBIGUOUS = new Set(["The Moon", "The Sun", "The Star", "The World", "Strength", "Justice", "Death", "Temperance", "Judgement"]);
 export const BANNED = /\b(good|bad|lucky|unlucky|dangerous|danger|doom|curse|cursed|dosha)\b/i;
 export const PREDICT = /\b(you will|you'll|you won't|you will not) (definitely |surely |certainly )?(get|be|marry|meet|find|have|become|clear|pass|lose|die|survive|succeed)\b/i;
 // A banned word or "you will ..." inside a refusal ("I can't say whether you will clear it") is not a violation.
@@ -33,13 +37,30 @@ export function validate(data, question, answer, { truncated = false } = {}) {
     }
   }
   for (const nk of NAKSHATRAS) if (new RegExp(`\\b${nk}\\b`).test(a) && !dataStr.includes(nk)) f.push(`nakshatra not in data: ${nk}`);
-  for (const card of CARDS) {
-    if (new RegExp(`\\b${card}\\b`).test(a) && data.tarot && !data.tarot.cards.some(x => x.card === card)) {
-      if (!new RegExp(`(not|isn't|no)[^.]{0,40}${card}|${card}[^.]{0,40}(not|isn't)`, "i").test(a)) f.push(`card not drawn: ${card}`);
+  if (data.tarot) {
+    const drawn = new Set((data.tarot.cards ?? []).map(x => x.card));
+    for (const card of CARDS) {
+      if (drawn.has(card)) continue;
+      const re = AMBIGUOUS.has(card)
+        ? new RegExp(`\\b${card}\\b(?=[^.]{0,12}\\bcard\\b)|\\bcard[^.]{0,6}\\b${card}\\b`, "i")
+        : new RegExp(`\\b${card}\\b`);
+      if (re.test(a) && !new RegExp(`(not|isn't|no|wasn't)[^.]{0,40}${card}|${card}[^.]{0,40}(not|isn't|wasn't)`, "i").test(a)) f.push(`card not drawn: ${card}`);
     }
+    if (data.tarot_only && /\b(Mesha|Vrishabha|Mithuna|Karka|Simha|Kanya|Tula|Vrishchika|Dhanu|Makara|Kumbha|Meena|mahadasha|antardasha|Sade Sati)\b/i.test(a)) f.push("chart facts in a tarot-only reading");
   }
   if (data.birth_time_status === "unknown" &&
       /\b(lagna|ascendant)\b[^.]{0,30}\b(is|in)\b[^.]{0,20}\b(Mesha|Vrishabha|Mithuna|Karka|Simha|Kanya|Tula|Vrishchika|Dhanu|Makara|Kumbha|Meena|Aries|Taurus|Gemini|Cancer|Leo|Virgo|Libra|Scorpio|Sagittarius|Capricorn|Aquarius|Pisces)/i.test(a))
     f.push("states a Lagna with unknown birth time");
   return f;
+}
+
+/** A Cross-Reading must have all five section labels, in order. */
+export function crossSectionsOk(answer, labels) {
+  let at = -1;
+  for (const l of labels) {
+    const i = answer.indexOf(l + ":", at + 1);
+    if (i < 0 || i < at) return false;
+    at = i;
+  }
+  return true;
 }

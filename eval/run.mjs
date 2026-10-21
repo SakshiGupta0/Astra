@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CASES } from "./cases.mjs";
 import { check } from "./checks.mjs";
-import { systemPrompt, userMessage, PROMPT_VERSION } from "./prompt.mjs";
+import { systemPrompt, tarotPrompt, crossPrompt, userMessage, PROMPT_VERSION } from "./prompt.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -28,7 +28,7 @@ const MODELS = {
 const THINKING = (pick("--thinking") ?? "low") === "none" ? null : (pick("--thinking") ?? "low");
 const chosen = MOCK ? ["mock"] : (pick("--models")?.split(",") ?? ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]);
 
-async function callGemini(model, sys, user) {
+async function callGemini(model, sys, user, maxOut = 2048) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY not set");
   // Free-tier keys have low per-minute limits: retry 429 / 503 with the server's suggested delay.
@@ -40,7 +40,7 @@ async function callGemini(model, sys, user) {
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST", signal: ctrl.signal, headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 2048, ...(useThinking ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) } }),
+        generationConfig: { temperature: 0.4, maxOutputTokens: maxOut, ...(useThinking ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) } }),
     });
     j = await r.json().catch(() => ({}));
     clearTimeout(timer);
@@ -77,6 +77,12 @@ async function callAnthropic(model, sys, user) {
 function callMock(c) {
   const d = c.data;
   if (c.set === "crisis") return { text: `I'm really sorry you're feeling this way. You don't have to go through it alone. Please reach out right now to ${d.support.helpline}, or call ${d.support.emergency} if you are in danger of acting on these thoughts. Talking to someone you trust today can help too. I'm here to listen whenever you want to talk.`.replace("in danger of acting", "close to acting"), inTok: 900, outTok: 70 };
+  if (c.mode === "tarot") return { text: d.tarot.cards.map(x => `In tarot, ${x.card}${x.orientation === "reversed" ? " reversed" : ""} in the position "${x.position}" speaks of ${x.keywords}.`).join(" ") + " Taken together, the cards invite you to slow down and notice what you already know. Something to reflect on: which part of this feels most true for you right now, and what small step would honour it this week? Tarot offers a mirror for reflection rather than a fixed answer, and the choice stays yours.", inTok: 700, outTok: 160 };
+  if (c.mode === "cross") {
+    const L = { hi: ["आपकी कुंडली", "आपके कार्ड", "जहाँ दोनों मिलते हैं", "जहाँ दोनों अलग हैं", "सोचने के लिए सवाल"] }[d.language] ?? ["Your chart", "Your cards", "Where they meet", "Where they differ", "Questions to sit with"];
+    const filler = " This is offered for reflection, and the decision stays with you. Each tradition describes a pattern rather than an outcome, so take what is useful and leave the rest.".repeat(3);
+    return { text: `${L[0]}: You are in the ${d.dasha_now.maha} mahadasha with the ${d.dasha_now.antar} sub-period, and the tone is ${d.tracker.tone_now}.${filler}\n${L[1]}: ` + d.tarot.cards.map(x => `In tarot, ${x.card} speaks of ${x.keywords}.`).join(" ") + `\n${L[2]}: Both point to patient effort.${filler}\n${L[3]}: The chart describes a long period, the cards a present mood.\n${L[4]}: What would steady effort look like this month? What does your heart want?`, inTok: 1600, outTok: 380 };
+  }
   const dn = d.dasha_now;
   const lang = d.language;
   let body = `Right now you are in the ${dn.maha} mahadasha with the ${dn.antar} sub-period, which runs until ${dn.antar_end}. Your period tone is ${d.tracker.tone_now} until ${d.tracker.tone_until}, because ${d.tracker.factors.join(" and ")}. In Vedic tradition this kind of stretch is read as a time to build steadily and keep commitments realistic, and the chart itself cannot tell you when or whether a particular event will happen. `;
@@ -92,11 +98,12 @@ function callMock(c) {
 }
 
 async function runOne(model, c) {
-  const sys = systemPrompt(); const user = userMessage(c);
+  const sys = c.mode === "cross" ? crossPrompt(c.data.language) : c.mode === "tarot" ? tarotPrompt() : systemPrompt();
+  const user = userMessage(c);
   const t0 = Date.now();
   try {
     const m = MODELS[model];
-    const r = m.provider === "gemini" ? await callGemini(model, sys, user)
+    const r = m.provider === "gemini" ? await callGemini(model, sys, user, c.mode === "cross" ? 3072 : 2048)
       : m.provider === "anthropic" ? await callAnthropic(model, sys, user) : callMock(c);
     const fails = check({ ...c, truncated: !!r.truncated }, r.text);
     const cost = (r.inTok * m.inPerM + r.outTok * m.outPerM) / 1e6;
@@ -129,7 +136,7 @@ async function main() {
   }
   fs.writeFileSync(path.join(outDir, "results.jsonl"), rows.map(r => JSON.stringify(r)).join("\n") + "\n");
 
-  const critical = new Set(["grounding", "story_off", "timing", "birth_time", "crisis", "injection", "tarot"]);
+  const critical = new Set(["grounding", "story_off", "timing", "birth_time", "crisis", "injection", "tarot", "cross"]);
   let md = `# ASTRA model bake-off\n\nPrompt ${PROMPT_VERSION} · ${CASES.length} cases · ${new Date().toISOString()}\n\n`;
   md += `| Model | Pass | Critical sets pass | Errors | Median latency | Avg tokens in/out | Cost per 1,000 answers |\n|---|---|---|---|---|---|---|\n`;
   for (const model of chosen) {

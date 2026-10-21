@@ -77,12 +77,24 @@ function mk(id, set, profile, question, opts = {}) {
   const data = { language: opts.language || "en", today: p.today || "2026-10-20", ...p, story: opts.story || NO_STORY, support: SUPPORT };
   if (opts.tarot) data.tarot = opts.tarot;
   if (opts.panchang) data.panchang = opts.panchang;
-  return { id, set, profile, question, data, expect: opts.expect || {} };
+  if (opts.mode === "tarot") {
+    // Tarot-only readings get no chart facts (same as the live gateway).
+    return { id, set, profile, question, mode: "tarot", expect: opts.expect || {},
+      data: { language: data.language, today: data.today, support: SUPPORT, story: data.story, tarot: opts.tarot, tarot_only: true } };
+  }
+  return { id, set, profile, question, data, mode: opts.mode || "ask", expect: opts.expect || {} };
 }
 
 const TAROT3 = { spread: "past / present / direction", cards: [
   { position: "past", card: "Eight of Cups", reversed: false }, { position: "present", card: "Three of Pentacles", reversed: false },
   { position: "direction", card: "The Star", reversed: false }] };
+// Same shape as Tarot.facts() in the app (astra-deck-1).
+const DRAW3 = { deck_version: "astra-deck-1", spread: "Three cards", cards: [
+  { position: "What's behind it", card: "Eight of Pentacles", orientation: "upright", keywords: "craft, diligence, skill-building", suit: "Pentacles" },
+  { position: "Where you are", card: "The Hermit", orientation: "reversed", keywords: "isolation, or avoiding needed time alone", suit: "Major Arcana" },
+  { position: "What can help", card: "Ace of Cups", orientation: "upright", keywords: "new feelings, openness, emotional beginnings", suit: "Cups" }] };
+const DRAW1 = { deck_version: "astra-deck-1", spread: "One card", cards: [
+  { position: "Your card", card: "Five of Swords", orientation: "reversed", keywords: "reconciliation, making amends", suit: "Swords" }] };
 const PANCHANG = { date: "2026-10-20", tithi: "Shukla Navami until 12:50 PM", nakshatra: "Shravana until 6:03 PM", rahu_kaal: "3:01 PM – 4:29 PM" };
 
 export const CASES = [
@@ -161,4 +173,16 @@ export const CASES = [
   mk("C03", "tarot", "rohan", "What does my present card mean?", { tarot: TAROT3 }),
   mk("C04", "tarot", "rohan", "Combine my cards with my chart for the question: should I move cities?", { tarot: TAROT3 }),
   mk("C05", "tarot", "priya", "Is the Death card in my reading?", { tarot: TAROT3 }),
+  // Tarot-only readings, interp-0.5 (5)
+  mk("K01", "tarot", "priya", "What do these cards say about my move?", { mode: "tarot", tarot: DRAW3 }),
+  mk("K02", "tarot", "priya", "Mere cards kya keh rahe hain job ke baare mein?", { mode: "tarot", tarot: DRAW3, language: "hinglish" }),
+  mk("K03", "tarot", "rohan", "What does my card mean for the argument with my friend?", { mode: "tarot", tarot: DRAW1 }),
+  mk("K04", "tarot", "rohan", "And what does my Saturn transit say about this?", { mode: "tarot", tarot: DRAW1 }),
+  mk("K05", "tarot", "priya", "Is The Tower in my spread?", { mode: "tarot", tarot: DRAW3, story: STORY }),
+  // Cross-Reading: chart and cards side by side in five sections (5)
+  mk("X01", "cross", "priya", "Should I take the startup offer?", { mode: "cross", tarot: DRAW3, story: STORY, expect: { mentions: ["startup", "offer", "job"] } }),
+  mk("X02", "cross", "rohan", "Is this the time to move cities?", { mode: "cross", tarot: DRAW3 }),
+  mk("X03", "cross", "priya", "Kya mujhe naya kaam shuru karna chahiye?", { mode: "cross", tarot: DRAW3, language: "hinglish" }),
+  mk("X04", "cross", "rohan", "मेरे करियर के बारे में क्या दिखता है?", { mode: "cross", tarot: DRAW3, language: "hi" }),
+  mk("X05", "cross", "unknownTime", "What do my chart and cards say about my studies?", { mode: "cross", tarot: DRAW3 }),
 ];
