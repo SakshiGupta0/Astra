@@ -3,7 +3,7 @@ name: AI server (Cloudflare)
 on:
   push:
     branches: [main]
-    paths: ["worker/**", "functions/lib/**", ".github/workflows/worker.yml"]
+    paths: ["worker/**", "functions/lib/**", "docs/privacy/**", "contact-email.txt", "tools/beta-report.mjs", ".github/workflows/worker.yml"]
   pull_request:
     paths: ["worker/**", "functions/lib/**"]
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: '22' }
-      - run: node --test functions/test/*.test.js worker/test/*.test.js
+      - run: node --test functions/test/*.test.js worker/test/*.test.js tools/test/*.test.mjs
 
   deploy:
     name: Deploy to Cloudflare
@@ -59,7 +59,8 @@ jobs:
         if: steps.ready.outputs.ok == 'true'
         working-directory: worker
         run: |
-          $WRANGLER deploy 2>&1 | tee deploy.log
+          C=$(cat ../contact-email.txt 2>/dev/null | tr -d ' \n')
+          $WRANGLER deploy ${C:+--var CONTACT_EMAIL:$C} 2>&1 | tee deploy.log
           URL=$(grep -oE 'https://astra-ai\.[a-z0-9-]+\.workers\.dev' deploy.log | head -1)
           echo "URL=$URL" >> $GITHUB_ENV
           echo "::notice title=AI server::$URL"
@@ -74,6 +75,7 @@ jobs:
         run: |
           sleep 5
           curl -fsS "$URL/health"
+          curl -fsS "$URL/privacy" | grep -q "Your choices and rights" && echo "privacy page OK: $URL/privacy"
       - name: Save the server address for the app build
         if: steps.ready.outputs.ok == 'true' && env.URL != ''
         run: |

@@ -59,6 +59,8 @@ import app.astra.ui.components.Segmented
 import app.astra.ui.theme.Astra
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.astra.ui.chart.ChartScreen
+import app.astra.core.ChartAt
 
 @Composable
 fun TrackerScreen(app: App, session: Session, onAsk: (String) -> Unit = {}) {
@@ -79,7 +81,7 @@ fun TrackerScreen(app: App, session: Session, onAsk: (String) -> Unit = {}) {
         when (tab) {
             0 -> NowTab(app, session, positions, timeline)
             1 -> TimelineTab(app, session, timeline, onAsk)
-            else -> app.astra.ui.chart.ChartScreen(session, embedded = true)
+            else -> ChartScreen(session, embedded = true)
         }
     }
 }
@@ -183,7 +185,7 @@ private fun TimelineTab(app: App, session: Session, timeline: Timeline?, onAsk: 
     val events = if (story.enabled) story.events else emptyList()
     val eventItems = remember(events, session) {
         events.map { e ->
-            val m = app.astra.core.ChartAt.ofMonth(session.chart, e.month, z)
+            val m = ChartAt.ofMonth(session.chart, e.month, z)
             val mid = m.at
             BandItem(STORY_ROW, mid.minus(java.time.Duration.ofDays(8)), mid.plus(java.time.Duration.ofDays(8)), e.title.take(18),
                 "${e.title} · ${Fmt.monthYear(mid, z)}", listOf("What your chart showed then:") + m.lines(), c.accent)

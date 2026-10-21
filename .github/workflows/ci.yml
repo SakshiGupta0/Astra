@@ -30,18 +30,22 @@ jobs:
       - name: Build release APK
         run: |
           ./gradlew --no-daemon --console=plain assembleRelease > apk.log 2>&1 || (grep -E "^e: |error:|What went wrong|Unresolved|Caused by" apk.log | head -60 | sed 's/^/::error title=apk::/' ; exit 1)
-      - name: Name the APK
+      - name: Build the Play Store bundle (AAB, for the Play Console testing track)
+        run: |
+          ./gradlew --no-daemon --console=plain bundleRelease > aab.log 2>&1 || (grep -E "^e: |error:|What went wrong|Caused by" aab.log | head -40 | sed 's/^/::error title=aab::/' ; exit 1)
+      - name: Name the APK and AAB
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/ASTRA-v${VERSION}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "out/ASTRA-v${VERSION}.aab"
       - name: Check the APK is signed with the ASTRA key
         run: |
           APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
           $APKSIGNER verify --print-certs out/*.apk | tee sig.txt
           grep -qi "f41af32c519645f8609627ac592418d0e3fc5a07" <(tr -d ':' < sig.txt | tr 'A-Z' 'a-z') || (echo "::error title=signing::APK is not signed with the ASTRA key"; exit 1)
       - uses: actions/upload-artifact@v4
-        with: { name: apk, path: out/*.apk }
+        with: { name: apk, path: "out/*" }
       - name: Model bake-off harness dry run
         run: node eval/run.mjs --mock
 
@@ -116,7 +120,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { name: apk, path: out }
-      - run: echo "APK=$(ls out/*.apk)" >> $GITHUB_ENV
+      - run: |
+          echo "APK=$(ls out/*.apk)" >> $GITHUB_ENV
+          echo "AAB=$(ls out/*.aab)" >> $GITHUB_ENV
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
@@ -125,5 +131,8 @@ jobs:
             Passed: core calculation tests (golden fixtures) and emulator smoke tests.
             Install: open this page on your Android phone, tap the .apk below, and allow "Install unknown apps" for your browser if asked.
             Installs over the previous build and keeps your details.
-          files: ${{ env.APK }}
+            The .aab file is for uploading to the Play Console testing track (see docs/PLAY-CONSOLE.md); phones can't install it directly.
+          files: |
+            ${{ env.APK }}
+            ${{ env.AAB }}
           make_latest: true

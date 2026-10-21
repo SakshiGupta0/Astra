@@ -35,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.MethodSorters
 import java.io.File
+import app.astra.ui.tarot.TarotState
 
 @RunWith(AndroidJUnit4::class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -51,7 +52,7 @@ class SmokeTest {
     @Before fun reset() {
         rule.runOnUiThread {
             app.deleteEverything(); app.backend = NoBackend; AskState.resetForTests()
-            app.astra.ui.tarot.TarotState.resetForTests(); app.analytics.setEnabled(false)
+            TarotState.resetForTests(); app.analytics.setEnabled(false)
         }
         rule.waitForIdle()
     }
@@ -255,7 +256,7 @@ class SmokeTest {
         rule.onNodeWithTag("revealAll").performClick()
         waitTag("cardMeanings")
         shot("83_tarot_meanings")
-        val drawn = app.astra.ui.tarot.TarotState.draw!!
+        val drawn = TarotState.draw!!
         assertTrue(drawn.cards.size == 3 && drawn.cards.map { it.cardId }.toSet().size == 3)
         rule.onNodeWithTag("readCards").performScrollTo().performClick()
         waitTag("tarotAnswer", 30_000)
@@ -318,7 +319,7 @@ class SmokeTest {
         assertTrue(card.day == java.time.LocalDate.now() && card.cards.size == 1)
         rule.onNodeWithTag("askDailyCard").performClick()
         waitTag("cardMeanings")
-        assertTrue(app.astra.ui.tarot.TarotState.draw == card)
+        assertTrue(TarotState.draw == card)
         rule.onNodeWithTag("tab_ME").performClick()
         rule.onNodeWithTag("privacyCard").performScrollTo()
         shot("102_me_privacy")

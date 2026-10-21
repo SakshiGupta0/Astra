@@ -36,6 +36,9 @@ import app.astra.ui.today.TodayScreen
 import app.astra.ui.tracker.TrackerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.astra.ui.onboarding.OnboardingClock
+import app.astra.ui.ask.AskState
+import app.astra.ui.tarot.TarotScreen
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
     TODAY("Today", R.drawable.ic_sun), TRACKER("Tracker", R.drawable.ic_orbit), TAROT("Tarot", R.drawable.ic_layers),
@@ -55,7 +58,7 @@ fun AppRoot(app: App, activity: MainActivity? = null) {
                         if (about != null) StoryRules.grant(shown.copy(about = about), "onboarding") else shown
                     }
                     app.analytics.log("onboarding_completed", "birth_time_status" to p.timeStatus.name.lowercase(), "story_opt_in" to (about != null),
-                        "language" to p.language.name.lowercase(), "duration_s" to app.astra.ui.onboarding.OnboardingClock.seconds())
+                        "language" to p.language.name.lowercase(), "duration_s" to OnboardingClock.seconds())
                     if (about != null) app.analytics.log("story_item_added", "type" to "about", "source" to "user")
                 }
             })
@@ -115,8 +118,8 @@ private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: ()
         Box(Modifier.fillMaxSize().background(c.background).padding(pad)) {
             when (tab) {
                 Tab.TODAY -> TodayScreen(app, session, onOpenTarot = { tab = Tab.TAROT }, onOpenTracker = { tab = Tab.TRACKER })
-                Tab.TRACKER -> TrackerScreen(app, session, onAsk = { q -> app.astra.ui.ask.AskState.draft = q; tab = Tab.ASK })
-                Tab.TAROT -> app.astra.ui.tarot.TarotScreen(app, session)
+                Tab.TRACKER -> TrackerScreen(app, session, onAsk = { q -> AskState.draft = q; tab = Tab.ASK })
+                Tab.TAROT -> TarotScreen(app, session)
                 Tab.ASK -> AskScreen(app, session, onOpenStory = { tab = Tab.ME })
                 Tab.ME -> ProfileScreen(app, session, onEdit)
             }

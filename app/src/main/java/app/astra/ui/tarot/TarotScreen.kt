@@ -48,6 +48,7 @@ import app.astra.ui.components.Starfield
 import app.astra.ui.components.TextLink
 import app.astra.ui.theme.Astra
 import kotlinx.coroutines.launch
+import app.astra.core.ReplyLanguage
 
 const val TAROT_NOTE = "Tarot is its own tradition, separate from your Vedic chart. A reading is a mirror for reflection, not a prediction."
 
@@ -164,7 +165,7 @@ private fun TurnView(app: App, t: ReadingTurn, cross: Boolean) {
             val a = t.answer!!
             AstraCard(Modifier.animateContentSize().testTag(if (cross) "crossAnswer" else "tarotAnswer")) {
                 Text(if (cross) "Cross-Reading" else "Your reading", style = Astra.type.heading, color = c.text)
-                val parts = if (cross && a.safety == "ok") TarotState.sections(a.answer, TarotState.crossLabels(app.profiles.profile?.language ?: app.astra.core.ReplyLanguage.EN)) else null
+                val parts = if (cross && a.safety == "ok") TarotState.sections(a.answer, TarotState.crossLabels(app.profiles.profile?.language ?: ReplyLanguage.EN)) else null
                 if (parts != null) parts.forEach { (label, body) ->
                     Text(label, style = Astra.type.bodyStrong, color = c.accent, modifier = Modifier.padding(top = 4.dp))
                     Text(body, style = Astra.type.body, color = c.text)

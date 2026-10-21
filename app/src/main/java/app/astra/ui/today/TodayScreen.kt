@@ -46,6 +46,7 @@ import app.astra.ui.tracker.toneColor
 import app.astra.ui.tracker.toneGlyph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.astra.core.StoryRules
 
 @Composable
 fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpenTracker: () -> Unit = {}) {
@@ -80,9 +81,9 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
         Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             (pCalc.error ?: posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
             val story = app.story.story
-            val pending = app.astra.core.StoryRules.pendingCheckins(story)
+            val pending = StoryRules.pendingCheckins(story)
             pending.firstOrNull()?.let { CheckinCard(app, session, it, onOpenTracker) }
-            if (pending.isEmpty() && app.astra.core.StoryRules.surveyDue(story, session.today)) SurveyCard(app, session)
+            if (pending.isEmpty() && StoryRules.surveyDue(story, session.today)) SurveyCard(app, session)
             // Your day
             AstraCard(Modifier.testTag("yourDay")) {
                 Text("Your day", style = Astra.type.heading, color = c.text)

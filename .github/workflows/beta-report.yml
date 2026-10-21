@@ -1,0 +1,42 @@
+name: Beta report
+# Scores the beta against the PRD 6.2 decision rules from content-free usage events in Cloudflare D1.
+# Runs every morning (IST) and on demand. The report holds aggregates only and is saved to the beta-report branch.
+on:
+  schedule:
+    - cron: "17 2 * * *"   # 07:47 IST
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER: npx --yes wrangler@4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: '22' }
+      - name: Read events (aggregated below; nothing personal is stored in the report)
+        working-directory: worker
+        run: |
+          ID=$($WRANGLER d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));const d=l.find(x=>x.name==="astra-usage");process.stdout.write(d?d.uuid:"")')
+          [ -n "$ID" ] || { echo "::error::The astra-usage database doesn't exist yet. Deploy the AI server first."; exit 1; }
+          sed -i "s/__D1_ID__/$ID/" wrangler.toml
+          $WRANGLER d1 execute astra-usage --remote --json --command "SELECT uid, day, name, props FROM events" > /tmp/events.json
+          $WRANGLER d1 execute astra-usage --remote --json --command "SELECT day, usd, calls FROM spend" > /tmp/spend.json
+          $WRANGLER d1 execute astra-usage --remote --json --command "SELECT COUNT(*) AS n FROM feedback" > /tmp/feedback.json
+      - name: Write the report
+        run: |
+          node tools/beta-report.mjs /tmp/events.json /tmp/spend.json /tmp/feedback.json > /tmp/report.md
+          cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Save to the beta-report branch
+        run: |
+          D=$(TZ=Asia/Kolkata date +%F)
+          git config user.name "github-actions[bot]"; git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git fetch origin beta-report || true
+          if git rev-parse --verify origin/beta-report >/dev/null 2>&1; then git checkout -B beta-report origin/beta-report; else git checkout --orphan beta-report && git rm -rf . -q; fi
+          mkdir -p reports && cp /tmp/report.md "reports/$D.md" && cp /tmp/report.md README.md
+          git add reports README.md && git commit -qm "Beta report $D" && git push -q origin beta-report || echo "no change"

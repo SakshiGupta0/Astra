@@ -44,6 +44,7 @@ import app.astra.ui.components.SectionTitle
 import app.astra.ui.components.TextLink
 import app.astra.ui.theme.Astra
 import java.time.YearMonth
+import app.astra.data.StoryPdf
 
 const val STORY_EXPLAINER = "Tell ASTRA once what's going on — a decision, a hope, a worry — and every answer, alert and reading starts from there. You can see, edit or delete every line, and switch it off any time."
 
@@ -210,7 +211,7 @@ private fun ShareDialog(app: App, session: Session, onDone: () -> Unit) {
             val text = StoryRules.export(app.story.story, session.profile, session.chart, session.at, birth, chart, dasha, threads, events)
             val count = listOf(birth, chart, dasha, threads, events).count { it }
             val send = if (pdf) runCatching {
-                val f = app.astra.data.StoryPdf.write(ctx, text)
+                val f = StoryPdf.write(ctx, text)
                 val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
                 Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }.getOrNull() else null
