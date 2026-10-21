@@ -329,9 +329,11 @@ class SmokeTest {
         rule.onNodeWithTag("dailyCard").performScrollTo()
         waitTag("askDailyCard")
         shot("101_daily_card_up")
-        assertTrue(app.draws.guidance!!.day == java.time.LocalDate.now())
+        // "Today" is the user's local day (India), which can differ from the emulator's UTC date around midnight.
         val card = app.draws.daily!!
-        assertTrue(card.day == java.time.LocalDate.now() && card.cards.size == 1)
+        val now = java.time.LocalDate.now()
+        assertTrue(card.cards.size == 1 && card.day != null && kotlin.math.abs(card.day!!.toEpochDay() - now.toEpochDay()) <= 1)
+        assertTrue(app.draws.guidance!!.day == card.day)
         rule.onNodeWithTag("askDailyCard").performClick()
         waitTag("cardMeanings")
         assertTrue(TarotState.draw == card)
