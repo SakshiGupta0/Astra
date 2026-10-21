@@ -47,12 +47,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TodayScreen(session: Session) {
+fun TodayScreen(app: app.astra.App, session: Session) {
     val c = Astra.colors
     val z = session.zone
     val pCalc by rememberCalc(session) { session.panchangToday }
     val posCalc by rememberCalc(session) { session.positions }
     val tlCalc by rememberCalc(session) { session.timelineNow }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val aiLine by produceState<Pair<String, Int>?>(TodayLineCache.get(ctx, session.today.toString()), session, app.backend) {
+        if (value == null && app.backend.available) value = runCatching {
+            app.backend.syncFacts(withContext(Dispatchers.Default) { session.factsJson() }, session.today.toString())
+            val r = app.backend.todayLine()
+            TodayLineCache.put(ctx, session.today.toString(), r.answer, r.storyUsed.size)
+            r.answer to r.storyUsed.size
+        }.getOrNull()
+    }
     val panchang = pCalc.valueOrNull
     val positions = posCalc.valueOrNull
     val timeline = tlCalc.valueOrNull
@@ -72,7 +81,15 @@ fun TodayScreen(session: Session) {
             AstraCard(Modifier.testTag("yourDay")) {
                 Text("Your day", style = Astra.type.heading, color = c.text)
                 val moon = positions?.firstOrNull { it.graha == Graha.MOON }
-                if (moon == null) Loading("Reading the sky…") else Text(Copy.todayLine(moon.houseFromMoon, moon.nakshatra), style = Astra.type.body, color = c.text)
+                aiLine?.let { (line, storyCount) ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AIcon(R.drawable.ic_sparkles, null, tint = c.accent, size = 18.dp)
+                        Text(line, style = Astra.type.body, color = c.text, modifier = Modifier.testTag("todayLine"))
+                    }
+                    if (storyCount > 0) Pill("From your story", c.lavender, filled = true)
+                }
+                if (moon == null) Loading("Reading the sky…") else Text(Copy.todayLine(moon.houseFromMoon, moon.nakshatra),
+                    style = if (aiLine == null) Astra.type.body else Astra.type.label, color = if (aiLine == null) c.text else c.textSecondary)
                 val tone = timeline?.tone?.firstOrNull { !session.at.isBefore(it.start) && session.at.isBefore(it.end) }
                 val dn = session.chart.dasha.at(session.at)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -118,4 +135,13 @@ fun TodayScreen(session: Session) {
 private fun until(i: java.time.Instant, s: Session): String {
     val sameDay = i.atZone(s.zone).toLocalDate() == s.today
     return if (sameDay) Fmt.time(i, s.zone) else "${Fmt.dateShort(i, s.zone)}, ${Fmt.time(i, s.zone)}"
+}
+
+/** Today's AI line, cached on the phone for the day (one per day; the server enforces it too). */
+object TodayLineCache {
+    private fun sp(ctx: android.content.Context) = ctx.getSharedPreferences("today_line", android.content.Context.MODE_PRIVATE)
+    fun get(ctx: android.content.Context, day: String): Pair<String, Int>? =
+        sp(ctx).takeIf { it.getString("day", null) == day }?.getString("text", null)?.let { it to sp(ctx).getInt("story", 0) }
+    fun put(ctx: android.content.Context, day: String, text: String, story: Int) =
+        sp(ctx).edit().putString("day", day).putString("text", text).putInt("story", story).apply()
 }

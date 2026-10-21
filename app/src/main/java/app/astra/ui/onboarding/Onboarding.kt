@@ -39,6 +39,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astra.R
 import app.astra.core.BirthTimeStatus
+import app.astra.core.LifeArea
+import app.astra.core.LifeStage
+import app.astra.core.StoryAbout
+import app.astra.core.StoryRules
 import app.astra.core.Profile
 import app.astra.core.ReplyLanguage
 import app.astra.core.SavedPlace
@@ -55,7 +59,7 @@ import app.astra.ui.theme.Astra
 import java.time.LocalDate
 import java.time.LocalTime
 
-private enum class Step { WELCOME, NAME, DATE, TIME, PLACE, NOW, LANGUAGE }
+private enum class Step { WELCOME, NAME, DATE, TIME, PLACE, NOW, STORY, LANGUAGE }
 
 /** Mutable draft while the flow is open. */
 private class Draft(p: Profile?) {
@@ -72,6 +76,12 @@ private class Draft(p: Profile?) {
     var nowPlace by mutableStateOf(p?.currentPlace)
     var sameAsBirth by mutableStateOf(p != null && p.currentPlace == p.birthPlace)
     var language by mutableStateOf(p?.language ?: ReplyLanguage.EN)
+    // My Story (first-time onboarding only). Off unless the user turns it on.
+    var storyOn by mutableStateOf(false)
+    var stage by mutableStateOf<LifeStage?>(null)
+    var areas by mutableStateOf(setOf<LifeArea>())
+    var nowLine by mutableStateOf("")
+    fun storyAbout(): StoryAbout? = if (storyOn) StoryAbout(stage, areas, StoryRules.clip(nowLine)) else null
     val offset = p?.utcOffsetOverrideMinutes
     val theme = p?.theme ?: ThemeChoice.DARK
 
@@ -104,9 +114,9 @@ private class Draft(p: Profile?) {
 }
 
 @Composable
-fun OnboardingFlow(initial: Profile?, onDone: (Profile) -> Unit, onCancel: (() -> Unit)? = null) {
+fun OnboardingFlow(initial: Profile?, onDone: (Profile, StoryAbout?) -> Unit, onCancel: (() -> Unit)? = null) {
     val draft = remember { Draft(initial) }
-    val steps = remember { if (initial == null) Step.entries.toList() else Step.entries.drop(1) }
+    val steps = remember { if (initial == null) Step.entries.toList() else Step.entries.filter { it != Step.WELCOME && it != Step.STORY } }
     var i by remember { mutableIntStateOf(0) }
     val step = steps[i]
     val c = Astra.colors
@@ -137,6 +147,7 @@ fun OnboardingFlow(initial: Profile?, onDone: (Profile) -> Unit, onCancel: (() -
                     Step.TIME -> TimeStep(draft)
                     Step.PLACE -> { Title("Where were you born?", "Your birthplace sets the time zone and the rising sign. Search works offline."); PlaceSearch(draft.birthPlace, { draft.birthPlace = it }) }
                     Step.NOW -> NowStep(draft)
+                    Step.STORY -> StoryStep(draft) { draft.storyOn = false; i++ }
                     Step.LANGUAGE -> LanguageStep(draft)
                     Step.WELCOME -> {}
                 }
@@ -147,13 +158,14 @@ fun OnboardingFlow(initial: Profile?, onDone: (Profile) -> Unit, onCancel: (() -
                 Step.TIME -> draft.status == BirthTimeStatus.UNKNOWN || (draft.status != null && draft.time() != null)
                 Step.PLACE -> draft.birthPlace != null
                 Step.NOW -> draft.sameAsBirth || draft.nowPlace != null
+                Step.STORY -> true
                 Step.LANGUAGE -> draft.build() != null
                 Step.WELCOME -> true
             }
             val last = i == steps.lastIndex
             PrimaryButton(
                 if (last) (if (initial == null) "Show my chart" else "Save changes") else "Continue",
-                onClick = { if (last) draft.build()?.let(onDone) else i++ },
+                onClick = { if (last) draft.build()?.let { onDone(it, draft.storyAbout()) } else i++ },
                 enabled = valid,
                 modifier = Modifier.fillMaxWidth().padding(20.dp).testTag("continue")
             )
@@ -241,9 +253,37 @@ private fun NowStep(d: Draft) {
     if (!d.sameAsBirth) PlaceSearch(d.nowPlace, { d.nowPlace = it }, label = "Town or city you live in")
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun StoryStep(d: Draft, onSkip: () -> Unit) {
+    val c = Astra.colors
+    Title("Tell your story once.", "ASTRA can remember what's going on in your life, so every answer, alert and reading starts from where you are. You don't repeat yourself to a new astrologer, app or chat.")
+    AstraCardInline {
+        Text("For example", style = Astra.type.meta, color = c.textSecondary)
+        Text("• Ask \"Is this a supportive time?\" and ASTRA already knows you're weighing a job offer.", style = Astra.type.label, color = c.text)
+        Text("• Your Sunday note mentions the decision you're facing.", style = Astra.type.label, color = c.text)
+    }
+    app.astra.ui.me.ToggleRow("Let ASTRA remember my story", "You see and edit every line in Me, and can switch it off any time.", d.storyOn, { d.storyOn = it }, tag = "onboardingStorySwitch")
+    if (d.storyOn) {
+        Text("Life stage", style = Astra.type.bodyStrong, color = c.text)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LifeStage.entries.forEach { s -> app.astra.ui.me.SelectPill(s.label, d.stage == s, { d.stage = if (d.stage == s) null else s }) }
+        }
+        Text("What's on your mind?", style = Astra.type.bodyStrong, color = c.text)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LifeArea.entries.forEach { a -> app.astra.ui.me.SelectPill(a.label, a in d.areas, { d.areas = if (a in d.areas) d.areas - a else d.areas + a }) }
+        }
+        AField(d.nowLine, { d.nowLine = it.take(StoryRules.MAX_TEXT) }, "What's going on right now? (optional)", placeholder = "e.g. Deciding between two job offers", tag = "onboardingNow")
+    }
+    app.astra.ui.components.TextLink("Skip for now", onSkip, Modifier.testTag("skipStory"))
+}
+
+@Composable
+private fun AstraCardInline(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) = app.astra.ui.components.AstraCard(content = content)
+
 @Composable
 private fun LanguageStep(d: Draft) {
-    Title("Which language should ASTRA reply in?", "For written readings and answers when Ask ASTRA arrives. The app itself is in English for now.")
+    Title("Which language should ASTRA reply in?", "For Ask ASTRA answers and your daily line. The app itself is in English for now.")
     ChoiceChips(ReplyLanguage.entries.map { it to it.label }, d.language, { d.language = it })
     if (d.build() == null) Notice("Something earlier needs another look. Go back and check your date, time and places.")
 }

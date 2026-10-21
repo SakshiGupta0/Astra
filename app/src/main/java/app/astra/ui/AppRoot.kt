@@ -3,7 +3,6 @@ package app.astra.ui
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -12,6 +11,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,8 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.astra.App
+import app.astra.MainActivity
 import app.astra.R
+import app.astra.core.StoryRules
 import app.astra.core.ThemeChoice
+import app.astra.ui.ask.AskScreen
 import app.astra.ui.chart.ChartScreen
 import app.astra.ui.components.AIcon
 import app.astra.ui.onboarding.OnboardingFlow
@@ -31,20 +34,27 @@ import app.astra.ui.theme.Astra
 import app.astra.ui.theme.AstraTheme
 import app.astra.ui.today.TodayScreen
 import app.astra.ui.tracker.TrackerScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class Tab(val label: String, @DrawableRes val icon: Int) {
-    TODAY("Today", R.drawable.ic_sun), TRACKER("Tracker", R.drawable.ic_orbit),
-    CHART("Chart", R.drawable.ic_compass), PROFILE("Profile", R.drawable.ic_user_round)
+    TODAY("Today", R.drawable.ic_sun), TRACKER("Tracker", R.drawable.ic_orbit), ASK("Ask", R.drawable.ic_message_circle),
+    CHART("Chart", R.drawable.ic_compass), ME("Me", R.drawable.ic_user_round)
 }
 
 @Composable
-fun AppRoot(app: App) {
+fun AppRoot(app: App, activity: MainActivity? = null) {
     val profile = app.profiles.profile
     AstraTheme(profile?.theme ?: ThemeChoice.DARK) {
         var editing by remember { mutableStateOf(false) }
         when {
-            profile == null -> OnboardingFlow(null, onDone = { app.profiles.save(it) })
-            editing -> OnboardingFlow(profile, onDone = { if (app.profiles.save(it)) editing = false }, onCancel = { editing = false })
+            profile == null -> OnboardingFlow(null, onDone = { p, about ->
+                if (app.profiles.save(p)) app.story.update { s ->
+                    val shown = s.copy(offersShown = maxOf(s.offersShown, 1))
+                    if (about != null) StoryRules.grant(shown.copy(about = about), "onboarding") else shown
+                }
+            })
+            editing -> OnboardingFlow(profile, onDone = { p, _ -> if (app.profiles.save(p)) editing = false }, onCancel = { editing = false })
             else -> {
                 // New session when the profile changes or the app comes back on a new day.
                 var day by remember { mutableStateOf(java.time.LocalDate.now()) }
@@ -53,15 +63,26 @@ fun AppRoot(app: App) {
                     onPauseOrDispose { }
                 }
                 val session = remember(profile, day) { Session(profile) }
-                Main(app, session, onEdit = { editing = true })
+                // Keep the server's copy of the chart facts current (once per day / profile change).
+                LaunchedEffect(session, app.backend) {
+                    if (app.backend.available) runCatching {
+                        app.backend.syncFacts(withContext(Dispatchers.Default) { session.factsJson() }, session.today.toString())
+                        if (app.story.story.enabled) app.backend.syncStory(app.story.story)
+                    }
+                }
+                Main(app, session, activity, onEdit = { editing = true })
             }
         }
     }
 }
 
 @Composable
-private fun Main(app: App, session: Session, onEdit: () -> Unit) {
+private fun Main(app: App, session: Session, activity: MainActivity?, onEdit: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.TRACKER) }
+    val requested = activity?.openTab?.value
+    LaunchedEffect(requested) {
+        requested?.let { name -> Tab.entries.firstOrNull { it.name == name }?.let { tab = it }; activity.openTab.value = null }
+    }
     val c = Astra.colors
     Scaffold(
         containerColor = c.background,
@@ -72,7 +93,7 @@ private fun Main(app: App, session: Session, onEdit: () -> Unit) {
                         selected = tab == t, onClick = { tab = t },
                         icon = { AIcon(t.icon, null, tint = if (tab == t) c.accent else c.textSecondary) },
                         label = { Text(t.label, style = Astra.type.meta) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = c.accent.copy(alpha = 0.16f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = c.gold.copy(alpha = 0.16f), selectedTextColor = c.text, unselectedTextColor = c.textSecondary),
                         modifier = Modifier.testTag("tab_${t.name}")
                     )
                 }
@@ -81,10 +102,11 @@ private fun Main(app: App, session: Session, onEdit: () -> Unit) {
     ) { pad ->
         Box(Modifier.fillMaxSize().background(c.background).padding(pad)) {
             when (tab) {
-                Tab.TODAY -> TodayScreen(session)
-                Tab.TRACKER -> TrackerScreen(session)
+                Tab.TODAY -> TodayScreen(app, session)
+                Tab.TRACKER -> TrackerScreen(app, session)
+                Tab.ASK -> AskScreen(app, session, onOpenStory = { tab = Tab.ME })
                 Tab.CHART -> ChartScreen(session)
-                Tab.PROFILE -> ProfileScreen(app, session.profile, onEdit)
+                Tab.ME -> ProfileScreen(app, session, onEdit)
             }
         }
     }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: the ASTRA crescent and star, white on transparent. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M60,36A20.6,20.6 0 1,0 60,72A22.5,22.5 0 0,1 60,36z" android:fillColor="#FFFFFFFF"/>
+    <path android:pathData="M70,38L71.6,44.4L78,46L71.6,47.6L70,54L68.4,47.6L62,46L68.4,44.4z" android:fillColor="#FFFFFFFF"/>
+</vector>

@@ -56,7 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TrackerScreen(session: Session) {
+fun TrackerScreen(app: app.astra.App, session: Session) {
     var tab by rememberSaveable { mutableStateOf(0) }
     val posCalc by rememberCalc(session) { session.positions }
     val tlCalc by rememberCalc(session) { session.timelineNow }
@@ -70,7 +70,7 @@ fun TrackerScreen(session: Session) {
             Segmented(listOf("Now", "Timeline"), tab, { tab = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp))
             (posCalc.error ?: tlCalc.error)?.let { Notice("Something went wrong in a calculation ($it). Please send this message to the ASTRA team.") }
         }
-        if (tab == 0) NowTab(session, positions, timeline) else TimelineTab(session, timeline)
+        if (tab == 0) NowTab(app, session, positions, timeline) else TimelineTab(session, timeline)
     }
 }
 
@@ -79,7 +79,7 @@ fun toneColor(t: Tone) = when (t) { Tone.SUPPORTIVE -> Astra.colors.supportive; 
 fun toneGlyph(t: Tone) = when (t) { Tone.SUPPORTIVE -> "▲"; Tone.MIXED -> "◆"; Tone.DEMANDING -> "▼" }
 
 @Composable
-private fun NowTab(session: Session, positions: List<NowPosition>?, timeline: Timeline?) {
+private fun NowTab(app: app.astra.App, session: Session, positions: List<NowPosition>?, timeline: Timeline?) {
     val c = Astra.colors
     val z = session.zone
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -120,6 +120,7 @@ private fun NowTab(session: Session, positions: List<NowPosition>?, timeline: Ti
             }
         }
 
+        if (app.notify.enabled == null && timeline != null) NotifyOffer(app)
         SectionTitle("Planets now")
         if (positions == null) Loading("Calculating positions…")
         positions?.forEach { PlanetRow(it, session) }
@@ -212,4 +213,20 @@ private fun Legend() {
         Tone.entries.forEach { Pill("${toneGlyph(it)} ${it.label}", toneColor(it), filled = true) }
     }
     Text("Tap any band for details. Scroll sideways: 12 months back, 24 ahead.", style = Astra.type.meta, color = c.textSecondary, textAlign = TextAlign.Start)
+}
+
+/** Asked once, after the first value moment (PRD 9.1 step 7). */
+@Composable
+private fun NotifyOffer(app: app.astra.App) {
+    val c = Astra.colors
+    val enable = app.astra.ui.me.rememberEnableNotifications(app)
+    AstraCard(Modifier.testTag("notifyOffer")) {
+        Text("Get a short morning note?", style = Astra.type.heading, color = c.text)
+        Text("Like this, at 7:30 am: \"Today: Shukla Dashami · Moon in your 10th · Rahu Kaal 1:30–3:00\". Plus a heads-up when something changes in your chart, at most twice a week.",
+            style = Astra.type.label, color = c.text)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            app.astra.ui.components.PrimaryButton("Yes, please", enable, Modifier.weight(1f).testTag("notifyYes"))
+            app.astra.ui.components.SecondaryButton("Not now", { app.notify.setEnabled(false) }, Modifier.weight(1f).testTag("notifyNo"))
+        }
+    }
 }

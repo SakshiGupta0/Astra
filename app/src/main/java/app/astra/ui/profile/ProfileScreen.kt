@@ -41,13 +41,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ProfileScreen(app: App, p: Profile, onEdit: () -> Unit) {
+fun ProfileScreen(app: App, session: app.astra.ui.Session, onEdit: () -> Unit) {
+    val p = session.profile
     val c = Astra.colors
     var confirmDelete by remember { mutableStateOf(false) }
     var advanced by remember { mutableStateOf(p.utcOffsetOverrideMinutes != null) }
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Profile", style = Astra.type.title, color = c.text)
+        Text("Me", style = Astra.type.title, color = c.text)
         app.profiles.lastError?.let { Notice(it) }
+
+        app.astra.ui.me.StorySection(app, session)
+        app.astra.ui.me.NotifySection(app)
+        app.astra.ui.me.AccountSection(app)
+
+        SectionTitle("Birth details")
 
         AstraCard {
             Text(p.name.ifBlank { "Your birth details" }, style = Astra.type.heading, color = c.text)
@@ -66,7 +73,7 @@ fun ProfileScreen(app: App, p: Profile, onEdit: () -> Unit) {
         Segmented(ThemeChoice.entries.map { it.label }, p.theme.ordinal, { app.profiles.save(p.copy(theme = ThemeChoice.entries[it])) }, Modifier.fillMaxWidth())
 
         SectionTitle("Reply language")
-        Text("Used for written answers when Ask ASTRA arrives.", style = Astra.type.meta, color = c.textSecondary)
+        Text("For Ask ASTRA answers and your daily line. The app itself is in English for now.", style = Astra.type.meta, color = c.textSecondary)
         ChoiceChips(ReplyLanguage.entries.map { it to it.label }, p.language, { app.profiles.save(p.copy(language = it)) })
 
         SectionTitle("Advanced")
@@ -77,17 +84,18 @@ fun ProfileScreen(app: App, p: Profile, onEdit: () -> Unit) {
         AstraCard {
             KeyValue("App version", BuildConfig.VERSION_NAME)
             KeyValue("Calculation", CoreVersion.CALC.substringBefore(":"))
-            Text("Charts, the tracker and panchang are calculated on this phone. Your details are stored only on this phone for now.", style = Astra.type.meta, color = c.textSecondary)
+            Text(if (app.backend.available) "Charts, the tracker and panchang are calculated on this phone. To answer your questions, ASTRA keeps a copy of your calculated chart and the story items you allow in your own private space on the server; nothing is used to train AI models."
+                else "Charts, the tracker and panchang are calculated on this phone. Your details are stored only on this phone.", style = Astra.type.meta, color = c.textSecondary)
             Text("Credits: Astronomy Engine by Don Cross (MIT) · Place data © GeoNames (CC BY 4.0) · Playfair Display and Inter (SIL Open Font Licence) · Lucide icons (ISC).",
                 style = Astra.type.meta, color = c.textSecondary)
         }
-        SecondaryButton("Delete my details from this phone", { confirmDelete = true }, Modifier.fillMaxWidth().padding(bottom = 24.dp))
+        SecondaryButton("Delete everything from this phone", { confirmDelete = true }, Modifier.fillMaxWidth().padding(bottom = 24.dp))
     }
     if (confirmDelete) AlertDialog(
         onDismissRequest = { confirmDelete = false },
-        title = { Text("Delete your details?") },
-        text = { Text("This removes your birth details and settings from this phone. You can enter them again any time.") },
-        confirmButton = { TextButton({ confirmDelete = false; app.profiles.clear() }) { Text("Delete") } },
+        title = { Text("Delete everything?") },
+        text = { Text("This removes your birth details, My Story, saved readings and settings from this phone. You can start again any time.") },
+        confirmButton = { TextButton({ confirmDelete = false; app.deleteEverything() }) { Text("Delete") } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } }
     )
 }

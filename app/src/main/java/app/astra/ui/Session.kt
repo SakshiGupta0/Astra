@@ -34,6 +34,10 @@ class Session(val profile: Profile, val at: Instant = Instant.now()) {
         return tracker.timeline(start, end)
     }
 
+    /** The DATA block the AI gateway reads (written to Firestore before asking). */
+    fun factsJson(): String = app.astra.data.Cloud.toJson(
+        app.astra.core.Facts.build(chart, timelineNow, panchangToday, at, zone, profile.language))
+
     fun panchang(date: LocalDate): Panchang =
         PanchangCalculator.compute(date, profile.currentPlace.latitude, profile.currentPlace.longitude, profile.currentPlace.zoneId)
 }

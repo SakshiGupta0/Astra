@@ -5,6 +5,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Firebase is switched on by adding app/google-services.json (see docs/FIREBASE-SETUP.md).
+// Without it the app still builds and runs; sign-in, backup and Ask ASTRA show as "being set up".
+val firebaseConfigured = file("google-services.json").exists()
+if (firebaseConfigured) apply(plugin = "com.google.gms.google-services")
+
 android {
     namespace = "app.astra"
     compileSdk = 35
@@ -13,9 +18,10 @@ android {
         applicationId = "app.astra"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = 2
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "FIREBASE", firebaseConfigured.toString())
     }
 
     // One fixed key for every build, so a new APK installs over the old one and keeps your data.
@@ -61,6 +67,18 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Sign-in, backup and the AI gateway
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-functions")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
 

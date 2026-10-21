@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.FixMethodOrder
@@ -43,7 +44,7 @@ class SmokeTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as App
 
     @Before fun reset() {
-        rule.runOnUiThread { app.profiles.clear() }
+        rule.runOnUiThread { app.deleteEverything(); app.backend = NoBackend; app.astra.ui.ask.AskState.resetForTests() }
         rule.waitForIdle()
     }
 
@@ -61,7 +62,7 @@ class SmokeTest {
 
     private fun next() = rule.onNodeWithTag("continue").performClick()
 
-    private fun onboard(timeChoice: String, hour: String? = "11", minute: String? = "05", pm: Boolean = false, shots: Boolean = false) {
+    private fun onboard(timeChoice: String, hour: String? = "11", minute: String? = "05", pm: Boolean = false, shots: Boolean = false, story: Boolean = false) {
         if (shots) shot("01_welcome")
         rule.onNodeWithTag("getStarted").performClick()
         rule.onNodeWithTag("name").performTextInput("Priya"); if (shots) shot("02_name"); next()
@@ -78,7 +79,16 @@ class SmokeTest {
         waitTag("selectedPlace").assertIsDisplayed()
         if (shots) shot("06_place_selected"); next()
         rule.onNodeWithText("Same as my birthplace").performClick(); next()
-        rule.onNodeWithText("Hinglish").performClick(); if (shots) shot("07_language"); next()
+        if (story) {
+            if (shots) shot("07a_story_offer")
+            rule.onNodeWithTag("onboardingStorySwitch").performClick()
+            rule.onNodeWithText("Working professional").performClick()
+            rule.onNodeWithText("Career").performClick()
+            rule.onNodeWithTag("onboardingNow").performScrollTo().performTextInput("Deciding between two job offers")
+            if (shots) shot("07b_story_filled")
+            next()
+        } else rule.onNodeWithTag("skipStory").performScrollTo().performClick()
+        rule.onNodeWithText("Hinglish").performClick(); if (shots) shot("07c_language"); next()
     }
 
     @Test fun a_fullJourneyKnownTime() {
@@ -102,9 +112,10 @@ class SmokeTest {
         waitTag("greeting").assertIsDisplayed()
         waitTag("panchang", 40_000)
         shot("15_today")
-        rule.onNodeWithTag("tab_PROFILE").performClick()
+        rule.onNodeWithTag("tab_ME").performClick()
+        shot("16_me_top")
         rule.onNodeWithText(BuildConfig.VERSION_NAME).performScrollTo().assertIsDisplayed()
-        shot("16_profile")
+        shot("17_me_bottom")
         assertNotNull(app.profiles.profile)
     }
 
@@ -123,20 +134,98 @@ class SmokeTest {
         waitTag("whereYouAre")
         rule.activityRule.scenario.recreate()
         waitTag("whereYouAre").assertIsDisplayed()
-        rule.onNodeWithTag("tab_PROFILE").performClick()
-        rule.onNodeWithText("around 6:30 pm (±60 min)").assertIsDisplayed()
+        rule.onNodeWithTag("tab_ME").performClick()
+        rule.onNodeWithText("around 6:30 pm (±60 min)").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun d_lightTheme() {
         onboard("I know the exact time")
         waitTag("whereYouAre")
-        rule.onNodeWithTag("tab_PROFILE").performClick()
-        rule.onNodeWithText("Light").performClick()
+        rule.onNodeWithTag("tab_ME").performClick()
+        rule.onNodeWithText("Light").performScrollTo().performClick()
         rule.onNodeWithTag("tab_TRACKER").performClick()
         waitTag("tone", 40_000)
         shot("30_tracker_light")
         rule.onNodeWithTag("tab_TODAY").performClick()
         waitTag("panchang", 40_000)
         shot("31_today_light")
+    }
+
+    @Test fun e_askWithStory() {
+        val fake = FakeBackend()
+        rule.runOnUiThread { app.backend = fake }
+        onboard("I know the exact time", story = true)
+        waitTag("whereYouAre")
+        assertTrue(app.story.story.enabled && app.story.story.about.nowLine.contains("job offers"))
+        rule.onNodeWithTag("tab_ASK").performClick()
+        waitTag("suggestion0")
+        shot("40_ask_empty")
+        rule.onNodeWithTag("askInput").performTextInput("Is this a supportive time for my job switch?")
+        rule.onNodeWithTag("askSend").performClick()
+        waitTag("answer", 30_000)
+        assertTrue(fake.factsSyncs >= 1 && fake.lastFactsJson!!.contains("\"dasha_now\""))
+        assertTrue(fake.questions.single().second.contains("about.now"))
+        waitTag("fromStory").performClick()
+        shot("41_ask_answer_story")
+        rule.onNodeWithTag("saveAnswer").performClick()
+        rule.waitForIdle()
+        assertTrue(app.readings.readings.size == 1)
+        assertTrue(app.story.story.digests.first().text.startsWith("Asked:"))
+        rule.onNodeWithTag("openLibrary").performClick()
+        rule.onNodeWithText("Saved readings").assertIsDisplayed()
+        shot("42_library")
+        rule.onNodeWithTag("tab_TODAY").performClick()
+        waitTag("todayLine", 30_000)
+        shot("43_today_ai_line")
+    }
+
+    @Test fun f_storyOfferAfterFirstSave() {
+        val fake = FakeBackend()
+        rule.runOnUiThread { app.backend = fake }
+        onboard("I know the exact time", story = false)
+        waitTag("whereYouAre")
+        rule.onNodeWithTag("tab_ASK").performClick()
+        waitTag("suggestion1").performClick()
+        waitTag("answer", 30_000)
+        assertTrue(fake.questions.single().second.isEmpty())
+        rule.onNodeWithTag("saveAnswer").performClick()
+        waitTag("storyOffer")
+        shot("50_story_offer_after_save")
+        rule.onNodeWithText("Set up My Story").performScrollTo().performClick()
+        waitTag("storySwitch").performClick()
+        rule.waitForIdle()
+        assertTrue(app.story.story.enabled && app.story.story.consent!!.offerPoint == "settings")
+        rule.onNodeWithTag("threadTitle").performScrollTo().performTextInput("Parents want me to meet a match")
+        rule.onNodeWithTag("addThread").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertTrue(app.story.story.threads.single().title == "Parents want me to meet a match")
+        rule.onNodeWithTag("storyCard").performScrollTo()
+        shot("51_me_story_on")
+        rule.onNodeWithTag("storySwitch").performClick()
+        rule.waitForIdle()
+        assertTrue(!app.story.story.enabled && app.story.story.threads.size == 1)
+    }
+
+    @Test fun g_notifications() {
+        onboard("I know the exact time")
+        waitTag("notifyOffer", 40_000)
+        shot("60_notify_offer")
+        rule.onNodeWithTag("notifyYes").performClick()
+        rule.waitForIdle()
+        assertTrue(app.notify.enabled == true)
+        val posted = app.astra.system.Notifications.runDaily(app)
+        assertTrue("no daily note: $posted", posted.any { it.kind != app.astra.core.NotifyKind.EVENT })
+        assertTrue("daily note repeated", app.astra.system.Notifications.runDaily(app).none { it.kind != app.astra.core.NotifyKind.EVENT })
+        rule.onNodeWithTag("tab_ME").performClick()
+        rule.onNodeWithTag("notifyCard").performScrollTo()
+        shot("61_me_notifications")
+    }
+
+    @Test fun h_askNotSetUp() {
+        onboard("I know the exact time")
+        waitTag("whereYouAre")
+        rule.onNodeWithTag("tab_ASK").performClick()
+        rule.onNodeWithText("Ask ASTRA is still being set up", substring = true).assertIsDisplayed()
+        shot("70_ask_not_set_up")
     }
 }
