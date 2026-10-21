@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,7 +68,7 @@ fun ChartScreen(session: Session, embedded: Boolean = false) {
 
         AstraCard {
             Text(if (moonChart) "Moon chart (Chandra lagna)" else "Birth chart (Rasi)", style = Astra.type.heading, color = c.text)
-            NorthIndianChart(chart, Modifier.fillMaxWidth().aspectRatio(1f).padding(top = 4.dp))
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { NorthIndianChart(chart, Modifier.widthIn(max = 460.dp).fillMaxWidth().aspectRatio(1f).padding(top = 4.dp)) }
             if (moonChart) Text(Copy.MOON_CHART_NOTE, style = Astra.type.meta, color = c.textSecondary)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f)) {

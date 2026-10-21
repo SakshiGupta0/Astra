@@ -9,6 +9,8 @@ import app.astra.core.ThreadStatus
 import app.astra.system.Notifications
 import app.astra.ui.ask.AskState
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
@@ -114,8 +116,8 @@ class SmokeTest {
         waitTag("timelineBands", 40_000)
         shot("12_tracker_timeline")
         rule.onNodeWithText("Chart").performClick()
-        waitTag("lagna").assertIsDisplayed()
-        rule.onNodeWithText("Birth chart (Rasi)").assertIsDisplayed()
+        waitTag("lagna").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Birth chart (Rasi)").performScrollTo().assertIsDisplayed()
         shot("13_chart")
         rule.onNodeWithText("How this was calculated").performScrollTo()
         shot("14_chart_method")
@@ -254,10 +256,10 @@ class SmokeTest {
         shot("80b_tarot_shuffling")
         waitTag("fan", 20_000)
         shot("81a_tarot_fan")
-        rule.onNodeWithTag("fan4").performClick()
-        rule.onNodeWithTag("fan10").performClick()
+        rule.onNodeWithTag("fan4").performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNodeWithTag("fan10").performSemanticsAction(SemanticsActions.OnClick)
         shot("81b_tarot_two_chosen")
-        rule.onNodeWithTag("fan16").performClick()
+        rule.onNodeWithTag("fan16").performSemanticsAction(SemanticsActions.OnClick)
         waitTag("card0")
         shot("81_tarot_face_down")
         rule.onNodeWithTag("card0").performClick()
