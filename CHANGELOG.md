@@ -1,5 +1,17 @@
 # Changelog
 
+## app 0.3.0 — M3 (21 Oct 2026)
+### Added
+- **My Story.** Offered during onboarding (off unless you turn it on, with Skip) and once more after your first saved answer. In Me you can set your life stage and what matters most, write what's going on right now, keep a list of what's on your mind (mark it resolved with an outcome), add life events, see earlier readings, share a summary with an astrologer (you choose what's included), switch it off (items kept, not used) or delete it.
+- **Ask ASTRA** tab. Answers come from your calculated chart and, if My Story is on, only the story items that fit the question (at most six), shown in a "From your story" chip. Suggested questions, including your open questions. Save answers to a library. 15 questions a day.
+- **Today**: a short daily line written by the AI when available, cached for the day; the calculated line stays as a fallback.
+- **Notifications** (offered once on the tracker, then in Me): a morning note (tithi, your Moon, Rahu Kaal), week ahead on Sundays instead, and heads-ups a week before and on the day of chart changes, at most two a week. Alerts about demanding periods are a separate opt-in, off by default. Quiet 10 pm–7 am. Worked out on the phone.
+- **Backup with Google** (Me → Backup): links your account and keeps a copy of your story and saved readings; signing in on a new phone brings them back.
+- **AI server** (Firebase Cloud Function, Mumbai region): checks sign-in, enforces 15 questions a day and a ₹15-a-day spending limit across all users, handles crisis messages itself with the Tele-MANAS helpline and no reading, uses only story items you allowed, checks every answer for invented chart facts, predictions and fear words (one retry, then a safe reply), and logs no question or answer text.
+- Database rules: each person can reach only their own data; usage counters are server-only. Tested against the Firestore emulator in CI.
+### Needs your Firebase project to switch on
+- Ask ASTRA, the AI daily line and backup show "being set up" until `google-services.json` is added and the server is deployed (docs/FIREBASE-SETUP.md).
+
 ## app 0.2.0 — M2 (21 Oct 2026)
 First installable build. Everything is calculated on the phone; nothing leaves it yet.
 ### Added
