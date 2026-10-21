@@ -61,7 +61,10 @@ fun AskScreen(app: App, session: Session, onOpenStory: () -> Unit) {
     val turns = AskState.turns
     LaunchedEffect(turns.size) { if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size) }
     val busy = turns.any { it.loading }
-    fun send(q: String) { if (q.isBlank() || busy) return; input = ""; scope.launch { AskState.ask(app, session, q) } }
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    // Close the keyboard on send so the answer has the whole screen.
+    fun send(q: String) { if (q.isBlank() || busy) return; input = ""; focus.clearFocus(); keyboard?.hide(); scope.launch { AskState.ask(app, session, q) } }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
