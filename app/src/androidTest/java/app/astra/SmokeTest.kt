@@ -73,7 +73,7 @@ class SmokeTest {
         return rule.onAllNodesWithTag(tag).onFirst()
     }
 
-    private fun next() = rule.onNodeWithTag("continue").performClick()
+    private fun next() { rule.waitForIdle(); rule.onNodeWithTag("continue").performSemanticsAction(SemanticsActions.OnClick) }
 
     private fun onboard(timeChoice: String, hour: String? = "11", minute: String? = "05", pm: Boolean = false, shots: Boolean = false, story: Boolean = false) {
         if (shots) shot("01_welcome")
@@ -223,7 +223,7 @@ class SmokeTest {
         onboard("I know the exact time")
         waitTag("notifyOffer", 40_000)
         shot("60_notify_offer")
-        rule.onNodeWithTag("notifyYes").performClick()
+        rule.onNodeWithTag("notifyYes").performScrollTo().performClick()
         rule.waitForIdle()
         assertTrue(app.notify.enabled == true)
         val posted = Notifications.runDaily(app)
@@ -252,8 +252,7 @@ class SmokeTest {
         rule.onNodeWithTag("tarotQuestion").performTextInput("What do I need to see about the job offer?")
         shot("80_tarot_new")
         rule.onNodeWithTag("drawCards").performClick()
-        waitTag("shuffling")
-        shot("80b_tarot_shuffling")
+        // With animations off (as in tests) the shuffle finishes at once and the fan opens.
         waitTag("fan", 20_000)
         shot("81a_tarot_fan")
         rule.onNodeWithTag("fan4").performSemanticsAction(SemanticsActions.OnClick)

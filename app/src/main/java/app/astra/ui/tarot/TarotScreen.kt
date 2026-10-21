@@ -178,11 +178,12 @@ private fun Fan(app: App, available: Dp) {
     val c = Astra.colors
     val need = TarotState.pendingSpread.positions.size
     val left = need - TarotState.picks.size
-    val cardW = min(available * 0.2f, 110.dp)
+    // The fan spans about 7.5 card widths, so size cards to fit the screen.
+    val cardW = min(available / 7.6f, 110.dp)
     val n = TarotState.FAN_SIZE
     Text(if (left == need) "Choose $need ${if (need == 1) "card" else "cards"} from the fan" else "$left more to choose",
         style = Astra.type.heading, color = c.text, modifier = Modifier.fillMaxWidth())
-    Box(Modifier.fillMaxWidth().height(cardW * 2.6f).testTag("fan"), contentAlignment = Alignment.BottomCenter) {
+    Box(Modifier.fillMaxWidth().height(cardW * 3.1f).testTag("fan"), contentAlignment = Alignment.BottomCenter) {
         Mandala(Modifier.size(cardW * 3.4f).align(Alignment.Center), alpha = 0.25f)
         for (i in 0 until n) {
             val angle = -54f + i * 108f / (n - 1)
