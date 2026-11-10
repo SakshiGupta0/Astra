@@ -121,6 +121,7 @@ fun PrivacyNoticeScreen(onBack: () -> Unit) {
     val md = remember {
         runCatching { ctx.assets.open("PRIVACY.md").bufferedReader().use { it.readText() } }.getOrDefault("The privacy notice couldn't be loaded.")
             .replace("{{CONTACT}}", BuildConfig.CONTACT_EMAIL.ifBlank { CONTACT_FALLBACK })
+            .replace("{{DELETE_URL}}", BuildConfig.AI_URL.trimEnd('/') + "/delete-account")
     }
     Column(Modifier.fillMaxSize().statusBarsPadding().testTag("privacyNotice")) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

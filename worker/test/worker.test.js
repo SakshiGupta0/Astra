@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { verifyIdToken, resetKeyCache } from "../src/auth.js";
+import { verifyIdToken, verifyAppCheck, resetKeyCache } from "../src/auth.js";
 import { decodeFields } from "../src/firestore.js";
 import { workerStore } from "../src/store.js";
 import worker from "../src/index.js";
@@ -141,6 +141,10 @@ test("events, feedback and delete-me end to end", async () => {
     assert.equal(db._db.prepare("SELECT COUNT(*) n FROM events WHERE uid='user1'").get().n, 2);
     assert.equal((await post("/feedback", { text: "Love the tracker", app: "0.4.0" })).status, 200);
     assert.equal((await post("/feedback", { text: "" })).status, 400);
+    assert.equal((await post("/feedback", { kind: "report", reason: "frightening", mode: "tarot", text: "", answer: "Scary answer text" })).status, 200);
+    const rep = db._db.prepare("SELECT text FROM feedback WHERE uid='user1' AND text LIKE '[REPORT%'").get();
+    assert.match(rep.text, /^\[REPORT frightening · tarot\] \n---\nScary answer text$/);
+    assert.equal((await post("/feedback", { kind: "report", reason: "x", answer: "" })).status, 400);
     assert.equal((await post("/events", { events: [] }, "bad")).status, 401);
     db._db.prepare("INSERT INTO usage (uid, day, mode, used) VALUES ('user1','2026-10-21','ask',3)").run();
     db._db.prepare("INSERT INTO usage (uid, day, mode, used) VALUES ('other','2026-10-21','ask',3)").run();
@@ -167,4 +171,40 @@ test("draws are read from the user's own Firestore space", async () => {
   assert.deepEqual(await s.getDraw("u", "abc123"), { facts });
   assert.equal(await s.getDraw("u", "../facts/current"), null);
   assert.equal(await s.getDraw("u", "zzz"), null);
+});
+
+test("public account-deletion page", async () => {
+  const r = await worker.fetch(new Request("https://x/delete-account"), { CONTACT_EMAIL: "help@example.com" });
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  assert.match(html, /Delete your ASTRA account/);
+  assert.match(html, /help@example\.com/);
+  assert.match(html, /Privacy &amp; data/);
+});
+
+test("App Check tokens: genuine accepted; wrong project, expired, forged or missing refused; enforce mode blocks", async () => {
+  resetKeyCache();
+  const NUM = "359300157269";
+  const ac = (o = {}) => ({ iss: `https://firebaseappcheck.googleapis.com/${NUM}`, aud: [`projects/${NUM}`, `projects/${PROJECT}`], sub: "1:359300157269:android:abc", exp: NOW / 1000 + 3600, iat: NOW / 1000 - 60, ...o });
+  const o = { fetchImpl: jwksFetch, now: NOW };
+  assert.equal(await verifyAppCheck(await sign(ac()), NUM, o), "ok");
+  assert.equal(await verifyAppCheck(await sign(ac({ aud: ["projects/999"] })), NUM, o), "invalid");
+  assert.equal(await verifyAppCheck(await sign(ac({ iss: "https://firebaseappcheck.googleapis.com/999" })), NUM, o), "invalid");
+  assert.equal(await verifyAppCheck(await sign(ac({ exp: NOW / 1000 - 10 })), NUM, o), "invalid");
+  const t = (await sign(ac())).split(".");
+  assert.equal(await verifyAppCheck(`${t[0]}.${t[1]}x.${t[2]}`, NUM, o), "invalid");
+  assert.equal(await verifyAppCheck("", NUM, o), "missing");
+  // Enforce mode: a signed-in request without App Check is refused before any work is done.
+  resetKeyCache();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => jwksFetch();
+  try {
+    const token = await sign(claims({ iat: Date.now() / 1000 - 60, exp: Date.now() / 1000 + 3000 }));
+    const env = { FIREBASE_PROJECT_ID: PROJECT, FIREBASE_PROJECT_NUMBER: NUM, APPCHECK: "enforce", DB: fakeD1() };
+    const r = await worker.fetch(new Request("https://x/feedback", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ text: "hello" }) }), env);
+    assert.equal(r.status, 403);
+    const good = await sign(ac({ exp: Date.now() / 1000 + 3600 }));
+    const r2 = await worker.fetch(new Request("https://x/feedback", { method: "POST", headers: { authorization: `Bearer ${token}`, "x-firebase-appcheck": good }, body: JSON.stringify({ text: "hello" }) }), env);
+    assert.equal(r2.status, 200);
+  } finally { globalThis.fetch = realFetch; }
 });

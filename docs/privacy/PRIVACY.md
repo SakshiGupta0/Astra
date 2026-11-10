@@ -1,8 +1,8 @@
 # ASTRA privacy notice
 
-Version privacy-1 · 21 October 2026 · applies to the ASTRA Android app (beta)
+Version privacy-2 · 10 November 2026 · applies to the ASTRA Android app
 
-ASTRA is a Vedic astrology and tarot companion run by an independent developer in India. This notice explains, in plain language, what personal data ASTRA uses, why, and how you stay in control. ASTRA is in a closed beta and is free; there are no ads, no payments and nothing is sold.
+ASTRA is a Vedic astrology and tarot companion run by an independent developer in India. This notice explains, in plain language, what personal data ASTRA uses, why, and how you stay in control. ASTRA is free; there are no ads, no payments and nothing is sold.
 
 ## What ASTRA uses, and why
 
@@ -15,6 +15,7 @@ ASTRA is a Vedic astrology and tarot companion run by an independent developer i
 - **Usage events**: which screens and features are used (for example "opened the tracker", "answer completed", "turned on My Story"), with your anonymous account ID and app version. They never contain your questions, answers, story, birth details or chart. Used to see whether ASTRA is working and worth continuing. You can switch them off in Me → Privacy.
 - **Error reports**: the type of error and the screen it happened on, without any of your content.
 - **Feedback you send**: the words you write in Me → Send feedback.
+- **Reports on answers**: if you tap Report under an AI answer, the answer text, the reason you choose and any note you add. Used only to find and fix harmful or wrong answers.
 - **Daily counters**: how many questions you've asked today, so the daily limits work.
 
 ASTRA does not use your data for advertising, does not sell it, and does not use it to train AI models.
@@ -33,7 +34,7 @@ Some of this processing may happen outside India.
 - **Switch off usage events** in Me → Privacy.
 - **See and correct** your birth details and story in the app at any time.
 - **Export** your story and chart summary in Me → My Story → Share my story.
-- **Delete your account** in Me → Privacy → Delete my account. This removes your story, chart facts, backups, counters, usage events and feedback from the server, signs you out and clears the app on this phone. Content-free security and usage logs may be kept for up to one year where the law requires it, then erased.
+- **Delete your account** in Me → Privacy & data → Delete my account. This removes your story, chart facts, saved draws, backups, counters, usage events, feedback and reports from the server, signs you out and clears the app on this phone. Content-free security and usage logs may be kept for up to one year where the law requires it, then erased. You can also ask us to delete your account at {{DELETE_URL}}.
 - **Withdraw consent**: turning a feature off is as easy as turning it on.
 
 ## Questions and complaints

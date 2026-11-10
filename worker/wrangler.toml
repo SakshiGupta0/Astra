@@ -7,6 +7,10 @@ workers_dev = true
 [vars]
 FIREBASE_PROJECT_ID = "astra-d00af"
 ASTRA_MODEL = "gemini-3.1-flash-lite"
+FIREBASE_PROJECT_NUMBER = "359300157269"
+# App Check: "monitor" logs whether requests come from the genuine Play build; switch to "enforce" once
+# Play Integrity is registered in Firebase App Check (docs/PLAY-RELEASE.md).
+APPCHECK = "monitor"
 
 [[d1_databases]]
 binding = "DB"

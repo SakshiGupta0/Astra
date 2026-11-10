@@ -1,6 +1,7 @@
 // Today: greeting, check-ins, your day (with the AI line), today's card and the panchang for where you live.
 package app.astra.ui.today
 
+import app.astra.ui.components.ReportLink
 import app.astra.App
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -106,7 +107,11 @@ fun TodayScreen(app: App, session: Session, onOpenTarot: () -> Unit = {}, onOpen
                         AIcon(R.drawable.ic_sparkles, null, tint = c.accent, size = 18.dp)
                         Text(line, style = Astra.type.body, color = c.text, modifier = Modifier.testTag("todayLine"))
                     }
-                    if (storyCount > 0) Pill("From your story", c.lavender, filled = true)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (storyCount > 0) Pill("From your story", c.lavender, filled = true)
+                        Box(Modifier.weight(1f))
+                        ReportLink(app, "today_line", line, "today-" + session.today)
+                    }
                 }
                 if (moon == null) Loading("Reading the sky…") else Text(Copy.todayLine(moon.houseFromMoon, moon.nakshatra),
                     style = if (aiLine == null) Astra.type.body else Astra.type.label, color = if (aiLine == null) c.text else c.textSecondary)

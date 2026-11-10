@@ -7,13 +7,14 @@
 //   GET  /health
 import { handle, GatewayError, istDate } from "../../functions/lib/gateway.js";
 import { callGemini } from "../../functions/lib/gemini.js";
-import { verifyIdToken } from "./auth.js";
+import { verifyIdToken, verifyAppCheck } from "./auth.js";
+import { DELETE_ACCOUNT } from "./delete-text.js";
 import { workerStore, workerExtras } from "./store.js";
 import { cleanEvent, MAX_BATCH, MAX_PER_DAY } from "./events.js";
 import { privacyPage } from "./md.js";
 import PRIVACY from "./privacy-text.js";
 
-const STATUS = { "invalid-argument": 400, unauthenticated: 401, "failed-precondition": 412, "resource-exhausted": 429, unavailable: 503, internal: 500 };
+const STATUS = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "failed-precondition": 412, "resource-exhausted": 429, unavailable: 503, internal: 500 };
 const reply = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 const fail = (code, message, extra = {}) => reply(STATUS[code] ?? 500, { error: { code, message, ...extra } });
 const short = (s, n) => String(s ?? "").replace(/[^\w.\- ]/g, "").slice(0, n);
@@ -24,7 +25,10 @@ export default {
     const now = deps.now ?? Date.now;
     if (url.pathname === "/health") return reply(200, { ok: true, model: env.ASTRA_MODEL });
     if (url.pathname === "/privacy" && request.method === "GET")
-      return new Response(privacyPage(PRIVACY, env.CONTACT_EMAIL || "us using Send feedback in the app (Me → Send feedback)"),
+      return new Response(privacyPage(PRIVACY.replaceAll("{{DELETE_URL}}", url.origin + "/delete-account"), env.CONTACT_EMAIL || "us using Send feedback in the app (Me → Send feedback)"),
+        { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } });
+    if ((url.pathname === "/delete-account" || url.pathname === "/delete") && request.method === "GET")
+      return new Response(privacyPage(DELETE_ACCOUNT, env.CONTACT_EMAIL || "the ASTRA team at the contact address in the Play Store listing", "Delete your ASTRA account"),
         { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } });
     if (request.method !== "POST" || !["/ask", "/events", "/feedback", "/delete-me"].includes(url.pathname)) return fail("invalid-argument", "Not found.");
 
@@ -33,6 +37,14 @@ export default {
     let uid;
     try { uid = await verifyIdToken(token, env.FIREBASE_PROJECT_ID, deps.auth ?? {}); }
     catch { return fail("unauthenticated", "Please open ASTRA again to sign in."); }
+    // App Check (Play Integrity): APPCHECK = "off" | "monitor" (default: check and log only) | "enforce".
+    const acMode = env.APPCHECK || "monitor";
+    const appCheck = acMode === "off" ? "off"
+      : await verifyAppCheck(request.headers.get("x-firebase-appcheck"), env.FIREBASE_PROJECT_NUMBER, deps.auth ?? {});
+    if (acMode === "enforce" && appCheck !== "ok") {
+      console.log(JSON.stringify({ ev: "appcheck_blocked", result: appCheck }));
+      return fail("permission-denied", "Please install or update ASTRA from the Google Play Store.");
+    }
     let body;
     try { body = await request.json(); } catch { return fail("invalid-argument", "Bad request."); }
     const extras = workerExtras(env.DB);
@@ -46,8 +58,16 @@ export default {
       return reply(200, { ok: true, stored: kept.length });
     }
     if (url.pathname === "/feedback") {
-      const text = String(body.text ?? "").trim().slice(0, 1000);
-      if (text.length < 2) return fail("invalid-argument", "Please write a few words.");
+      let text = String(body.text ?? "").trim().slice(0, 1000);
+      if (body.kind === "report") {
+        // A report on an AI answer (Play AI-content policy): reason, optional note and the answer text only.
+        const reason = ["harmful", "frightening", "wrong", "other"].includes(body.reason) ? body.reason : "other";
+        const mode = ["ask", "today_line", "tarot", "cross"].includes(body.mode) ? body.mode : "ask";
+        const answer = String(body.answer ?? "").trim().slice(0, 3000);
+        if (!answer) return fail("invalid-argument", "Nothing to report.");
+        text = `[REPORT ${reason} · ${mode}] ${text.slice(0, 500)}\n---\n${answer}`;
+        console.log(JSON.stringify({ ev: "answer_reported", reason, mode }));
+      } else if (text.length < 2) return fail("invalid-argument", "Please write a few words.");
       if ((await extras.feedbackToday(uid, today)) >= 10) return fail("resource-exhausted", "Thanks! You've sent a lot of feedback today. Please send more tomorrow.");
       await extras.addFeedback(uid, short(body.app, 20), text, new Date(started).toISOString());
       return reply(200, { ok: true });
@@ -70,7 +90,7 @@ export default {
         }
       );
       // Content-free log: no question, answer, chart or story text.
-      console.log(JSON.stringify({ ev: "ask", mode: res.mode ?? body.mode ?? "ask", safety: res.safety, story_items: res.storyUsed.length, ms: now() - started }));
+      console.log(JSON.stringify({ ev: "ask", mode: res.mode ?? body.mode ?? "ask", appcheck: appCheck, safety: res.safety, story_items: res.storyUsed.length, ms: now() - started }));
       return reply(200, res);
     } catch (e) {
       if (e instanceof GatewayError) {

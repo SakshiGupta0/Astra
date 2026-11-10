@@ -16,21 +16,26 @@ val contactEmail = rootProject.file("contact-email.txt").takeIf { it.exists() }?
 
 android {
     namespace = "app.astra"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.astra"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 4
-        versionName = "0.5.0"
+        targetSdk = 36
+        versionCode = 5
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "FIREBASE", firebaseConfigured.toString())
         buildConfigField("String", "AI_URL", "\"$aiUrl\"")
         buildConfigField("String", "CONTACT_EMAIL", "\"$contactEmail\"")
     }
 
-    // One fixed key for every build, so a new APK installs over the old one and keeps your data.
+    // Two keys:
+    // - "astra" (keystore/astra.jks, in this public repo) signs DEBUG/TEST builds only. It is not secret, so it must
+    //   never sign anything that reaches users.
+    // - "upload" signs RELEASE builds for Google Play. It lives only in GitHub secrets (ASTRA_UPLOAD_KEYSTORE_B64,
+    //   ASTRA_UPLOAD_PASSWORD); CI writes it to a temp file and passes the path in ASTRA_UPLOAD_KEYSTORE.
+    //   Play App Signing re-signs what users download with Google's app signing key.
     signingConfigs {
         create("astra") {
             storeFile = rootProject.file("keystore/astra.jks")
@@ -38,13 +43,28 @@ android {
             keyAlias = "astra"
             keyPassword = "astra-build"
         }
+        val uploadPath = System.getenv("ASTRA_UPLOAD_KEYSTORE")
+        val uploadPass = System.getenv("ASTRA_UPLOAD_PASSWORD")
+        if (!uploadPath.isNullOrBlank() && !uploadPass.isNullOrBlank() && file(uploadPath).exists()) {
+            create("upload") {
+                storeFile = file(uploadPath)
+                storePassword = uploadPass
+                keyAlias = "upload"
+                keyPassword = uploadPass
+            }
+        }
     }
 
     buildTypes {
         debug { signingConfig = signingConfigs.getByName("astra") }
         release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("astra")
+            // R8: shrinks, optimises and obfuscates; strips unused resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Unsigned when the upload key isn't available (pull requests, forks); never the public test key.
+            signingConfig = signingConfigs.findByName("upload")
+            ndk { debugSymbolLevel = "NONE" }
         }
     }
 
@@ -82,6 +102,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

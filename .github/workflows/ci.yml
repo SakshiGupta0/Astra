@@ -18,6 +18,8 @@ jobs:
     name: Core tests + app unit tests + APK
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -27,23 +29,53 @@ jobs:
         run: |
           ./gradlew --no-daemon --console=plain :core:test testDebugUnitTest > unit.log 2>&1 || (grep -E "^e: |error:|What went wrong|FAILED|FAIL |Unresolved|Caused by" unit.log | head -60 | sed 's/^/::error title=build::/' ; exit 1)
           grep -E "PASSED [0-9]+|note:" unit.log | sed 's/^/::notice title=core::/' || true
-      - name: Build release APK
+      - name: Load the Play upload key (GitHub secrets only; absent on pull requests and forks)
+        id: key
+        env:
+          KEY_B64: ${{ secrets.ASTRA_UPLOAD_KEYSTORE_B64 }}
+          KEY_PASS: ${{ secrets.ASTRA_UPLOAD_PASSWORD }}
         run: |
-          ./gradlew --no-daemon --console=plain assembleRelease > apk.log 2>&1 || (grep -E "^e: |error:|What went wrong|Unresolved|Caused by" apk.log | head -60 | sed 's/^/::error title=apk::/' ; exit 1)
-      - name: Build the Play Store bundle (AAB, for the Play Console testing track)
+          if [ -n "$KEY_B64" ] && [ -n "$KEY_PASS" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "ASTRA_UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> $GITHUB_ENV
+            echo "ASTRA_UPLOAD_PASSWORD=$KEY_PASS" >> $GITHUB_ENV
+            echo "SIGNED=true" >> $GITHUB_ENV
+            echo "signed=true" >> $GITHUB_OUTPUT
+          else
+            echo "SIGNED=false" >> $GITHUB_ENV
+            echo "::warning title=signing::Upload key secrets not set: release build is unsigned and won't be published. See docs/PLAY-RELEASE.md."
+          fi
+      - name: Build release APK (R8 minified)
         run: |
-          ./gradlew --no-daemon --console=plain bundleRelease > aab.log 2>&1 || (grep -E "^e: |error:|What went wrong|Caused by" aab.log | head -40 | sed 's/^/::error title=aab::/' ; exit 1)
+          ./gradlew --no-daemon --console=plain assembleRelease > apk.log 2>&1 || (grep -E "^e: |error:|ERROR|Missing class|What went wrong|Unresolved|Caused by" apk.log | head -60 | sed 's/^/::error title=apk::/' ; exit 1)
+      - name: Build the Play Store bundle (AAB)
+        run: |
+          ./gradlew --no-daemon --console=plain bundleRelease > aab.log 2>&1 || (grep -E "^e: |error:|ERROR|What went wrong|Caused by" aab.log | head -40 | sed 's/^/::error title=aab::/' ; exit 1)
       - name: Name the APK and AAB
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/ASTRA-v${VERSION}.apk"
+          mkdir -p out smoke
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" "out/ASTRA-v${VERSION}.apk"
           cp app/build/outputs/bundle/release/app-release.aab "out/ASTRA-v${VERSION}.aab"
-      - name: Check the APK is signed with the ASTRA key
+          cp app/build/outputs/mapping/release/mapping.txt "out/mapping-v${VERSION}.txt"
+          # A copy re-signed with the public TEST key, only for the release smoke test on the emulator.
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/zipalign -f -p 4 "$APK" smoke/aligned.apk
+          $BT/apksigner sign --ks keystore/astra.jks --ks-pass pass:astra-build --ks-key-alias astra --key-pass pass:astra-build --out smoke/release-smoke.apk smoke/aligned.apk
+          rm smoke/aligned.apk
+      - name: Check the release is signed with the Play upload key, never the public test key
+        if: env.SIGNED == 'true'
         run: |
-          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
-          $APKSIGNER verify --print-certs out/*.apk | tee sig.txt
-          grep -qi "f41af32c519645f8609627ac592418d0e3fc5a07" <(tr -d ':' < sig.txt | tr 'A-Z' 'a-z') || (echo "::error title=signing::APK is not signed with the ASTRA key"; exit 1)
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner verify --print-certs out/*.apk | tee sig.txt
+          F=$(tr -d ':' < sig.txt | tr 'A-Z' 'a-z')
+          echo "$F" | grep -q "cfe66964d7c1b8a5f8550d041287f99b5b23c965173a52f4612da025ab494c87" || (echo "::error title=signing::APK is not signed with the ASTRA upload key"; exit 1)
+          echo "$F" | grep -q "f41af32c519645f8609627ac592418d0e3fc5a07" && (echo "::error title=signing::Release is signed with the public test key"; exit 1) || true
+          jarsigner -verify out/*.aab | grep -q "jar verified" || (echo "::error title=signing::AAB signature does not verify"; exit 1)
+      - uses: actions/upload-artifact@v4
+        with: { name: release-smoke, path: "smoke/*" }
       - uses: actions/upload-artifact@v4
         with: { name: apk, path: "out/*" }
       - name: Model bake-off harness dry run
@@ -176,10 +208,55 @@ jobs:
           git add . && git -c user.name=ci -c user.email=ci@example.com commit -qm "screenshots ${{ github.sha }}"
           git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" shots-tablet
 
+  release-smoke:
+    name: Release build launches (R8, Android 15)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: release-smoke, path: smoke }
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install the minified release build, open it and check it doesn't crash
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 4096M
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install -r smoke/release-smoke.apk
+            adb logcat -c
+            adb shell am start -W -n app.astra/.MainActivity
+            sleep 20
+            adb exec-out screencap -p > smoke/release-launch.png
+            adb logcat -d > smoke/logcat.txt
+            if grep -E "FATAL EXCEPTION|AndroidRuntime: .*app.astra" smoke/logcat.txt; then grep -A25 "FATAL EXCEPTION" smoke/logcat.txt | head -40 | sed 's/^/::error title=release-crash::/'; exit 1; fi
+            adb shell pidof app.astra || (echo "::error title=release-crash::app is not running after launch"; exit 1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: release-launch, path: "smoke/*.png" }
+      - name: Push the launch screenshot to the shots-release branch
+        if: always()
+        run: |
+          mkdir -p rel && cp smoke/*.png rel/ 2>/dev/null || exit 0
+          cd rel && git init -q && git checkout -q -b shots-release
+          git add . && git -c user.name=ci -c user.email=ci@example.com commit -qm "release launch ${{ github.sha }}"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" shots-release
+
   release:
-    name: Publish APK
-    needs: [build, ui-tests]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: Publish release (Play bundle + APK)
+    needs: [build, ui-tests, release-smoke]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.build.outputs.signed == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
@@ -187,15 +264,15 @@ jobs:
       - run: |
           echo "APK=$(ls out/*.apk)" >> $GITHUB_ENV
           echo "AAB=$(ls out/*.aab)" >> $GITHUB_ENV
+          echo "VERSION=$(ls out/*.aab | grep -oP 'v\K[0-9.]+(?=\.aab)')" >> $GITHUB_ENV
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: ASTRA — build ${{ github.run_number }}
+          name: ASTRA ${{ env.VERSION }} — build ${{ github.run_number }}
           body: |
-            Passed: core calculation tests (golden fixtures) and emulator smoke tests.
-            Install: open this page on your Android phone, tap the .apk below, and allow "Install unknown apps" for your browser if asked.
-            Installs over the previous build and keeps your details.
-            The .aab file is for uploading to the Play Console testing track (see docs/PLAY-CONSOLE.md); phones can't install it directly.
+            Passed: core calculation tests, emulator smoke tests (phone), and a launch check of the minified release build on Android 15.
+            **For Google Play:** upload the .aab in Play Console (see docs/PLAY-RELEASE.md). It is signed with the ASTRA upload key; Google re-signs it for users.
+            The .apk is the same release build, for checking on a phone you own. It cannot update builds installed from Play, or the older test builds (uninstall those first).
           files: |
             ${{ env.APK }}
             ${{ env.AAB }}

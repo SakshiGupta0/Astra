@@ -13,6 +13,8 @@ import app.astra.core.Tarot
 import app.astra.core.TarotDraw
 import app.astra.core.DrawCodec
 import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -64,7 +66,19 @@ class Cloud(private val context: Context) : AskBackend {
     private val db get() = FirebaseFirestore.getInstance()
     private var lastFactsDay: String? = null
 
-    init { if (firebaseReady) refreshAccount() }
+    init {
+        // App Check proves requests come from the genuine Play Store build (Play Integrity). Release builds only;
+        // the AI server logs or enforces it (APPCHECK in worker/wrangler.toml).
+        if (firebaseReady && !BuildConfig.DEBUG) runCatching {
+            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
+        }
+        if (firebaseReady) refreshAccount()
+    }
+
+    /** App Check token, or null if unavailable (debug builds, sideloaded copies, no Play services). Never throws. */
+    private suspend fun appCheckToken(): String? = if (BuildConfig.DEBUG) null else runCatching {
+        withTimeout(8_000) { FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
 
     private fun refreshAccount() {
         val u = auth.currentUser
@@ -131,11 +145,13 @@ class Cloud(private val context: Context) : AskBackend {
         if (!available) throw CloudError.NotSetUp()
         uid()
         val token = withTimeout(20_000) { auth.currentUser!!.getIdToken(false).await() }.token ?: throw CloudError.Failed("Couldn't confirm your session.")
+        val ac = appCheckToken()
         return try {
             withContext(Dispatchers.IO) {
                 val conn = (URL(BuildConfig.AI_URL.trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; connectTimeout = 15_000; readTimeout = 30_000; doOutput = true
                     setRequestProperty("content-type", "application/json"); setRequestProperty("authorization", "Bearer $token")
+                    ac?.let { setRequestProperty("x-firebase-appcheck", it) }
                 }
                 try {
                     conn.outputStream.use { it.write(Json.write(body).toByteArray()) }
@@ -148,6 +164,14 @@ class Cloud(private val context: Context) : AskBackend {
     suspend fun sendFeedback(text: String) {
         val code = post("/feedback", mapOf("text" to text, "app" to BuildConfig.VERSION_NAME))
         if (code == 429) throw CloudError.Failed("Thanks! You've sent a lot of feedback today. Please send more tomorrow.")
+        if (code !in 200..299) throw CloudError.Failed("Couldn't send just now. Please try again.")
+    }
+
+    /** Reports an AI answer (harmful, frightening, wrong…). Sends only the answer text, the reason and an optional note. */
+    suspend fun reportAnswer(mode: String, reason: String, note: String, answer: String) {
+        val code = post("/feedback", mapOf("kind" to "report", "mode" to mode, "reason" to reason, "text" to note,
+            "answer" to answer.take(3000), "app" to BuildConfig.VERSION_NAME))
+        if (code == 429) throw CloudError.Failed("You've sent a lot of reports today. Please try again tomorrow.")
         if (code !in 200..299) throw CloudError.Failed("Couldn't send just now. Please try again.")
     }
 
@@ -178,11 +202,13 @@ class Cloud(private val context: Context) : AskBackend {
         if (!available) throw CloudError.NotSetUp()
         uid()
         val token = withTimeout(20_000) { auth.currentUser!!.getIdToken(false).await() }.token ?: throw CloudError.Failed("Couldn't confirm your session. Please try again.")
+        val ac = appCheckToken()
         val (status, text) = try {
             withContext(Dispatchers.IO) {
                 val conn = (URL(BuildConfig.AI_URL.trimEnd('/') + "/ask").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; connectTimeout = 15_000; readTimeout = 120_000; doOutput = true
                     setRequestProperty("content-type", "application/json"); setRequestProperty("authorization", "Bearer $token")
+                    ac?.let { setRequestProperty("x-firebase-appcheck", it) }
                 }
                 try {
                     conn.outputStream.use { it.write(Json.write(data).toByteArray()) }

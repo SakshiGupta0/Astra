@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import app.astra.ui.components.ReportLink
 import app.astra.App
 import app.astra.R
 import app.astra.core.StoryRules
@@ -158,6 +159,7 @@ private fun AnswerCard(app: App, t: Turn, onOpenStory: () -> Unit) {
                 Pill("From your story · ${t.storyItems.size}", c.lavender, filled = true)
             }
             Box(Modifier.weight(1f))
+            if (a.safety != "crisis") ReportLink(app, "ask", a.answer, "ask-" + t.id)
             if (a.safety != "crisis") {
                 if (t.savedId == null) TextLink("Save", {
                     AskState.save(app, t)

@@ -18,10 +18,10 @@ export function mdToHtml(md) {
   return out.join("\n");
 }
 
-export function privacyPage(md, contact) {
+export function privacyPage(md, contact, title = "ASTRA privacy notice") {
   const body = mdToHtml(md.replaceAll("{{CONTACT}}", contact));
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASTRA privacy notice</title><style>
+<title>${title}</title><style>
 :root{--bg:#080F24;--card:#181648;--text:#F5F3FF;--muted:#AAB0C5;--gold:#F7D794}
 @media (prefers-color-scheme: light){:root{--bg:#F7F5FF;--card:#FFFFFF;--text:#1B1A3A;--muted:#55597A;--gold:#602D89}}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}

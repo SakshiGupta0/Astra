@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,6 +53,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import app.astra.ui.components.ReportLink
 import app.astra.App
 import app.astra.core.Oracle
 import app.astra.core.OracleDeck
@@ -195,7 +197,11 @@ private fun Fan(app: App, available: Dp) {
                 glow = chosen, onClick = { TarotState.pick(app, i) })
         }
     }
-    TextLink("Choose for me", { TarotState.chooseForMe(app) }, Modifier.testTag("chooseForMe"))
+    // The outer cards of the fan swing below the box, so leave room before the link.
+    Spacer(Modifier.height(cardW * 0.7f))
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        TextLink("Choose for me", { TarotState.chooseForMe(app) }, Modifier.testTag("chooseForMe"))
+    }
 }
 
 @Composable
@@ -317,6 +323,7 @@ private fun TurnView(app: App, t: ReadingTurn, cross: Boolean) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (t.storyItems.isNotEmpty()) Box(Modifier.clickable { showItems = !showItems }) { Pill("✦ From your story · ${t.storyItems.size}", c.lavender, filled = true) }
                     Box(Modifier.weight(1f))
+                    if (a.safety != "crisis") ReportLink(app, t.mode, a.answer, t.mode + "-" + System.identityHashCode(t))
                     if (a.safety != "crisis") {
                         if (t.savedId == null) TextLink("Save", { TarotState.save(app, t) }, Modifier.testTag(if (cross) "saveCross" else "saveTarot"))
                         else Text("Saved", style = Astra.type.label, color = c.textSecondary)
