@@ -1,5 +1,18 @@
 # Changelog
 
+## app 1.0.0 — Play Store release build (10 Nov 2026)
+### Security and Play requirements
+- Release builds are signed with a private **upload key** kept only in GitHub secrets (Play App Signing re-signs for users). The key in `keystore/` is public and now signs test builds only; CI refuses to publish a release signed with it.
+- Targets **Android 16 (API 36)**. R8 code shrinking and obfuscation, unused resources removed.
+- No Android cloud backup or device-to-device transfer of app data; HTTPS only, system certificates only.
+- **Report** on every AI answer (Ask, Today's line, tarot, Cross-Reading): sends the answer, a reason and an optional note.
+- Public **account-deletion page** at /delete-account on the AI server; privacy notice v2 mentions reports and the page.
+- **App Check** (Play Integrity) tokens sent by Play builds; the AI server logs them now and can enforce later.
+- CI: launch check of the minified release build on an Android 15 emulator before any release is published.
+### Fixed
+- Three-card spread: a long position label no longer squeezes the third card on phones.
+- "Choose for me" no longer overlaps the tarot fan.
+
 ## app 0.5.0 — Look & feel (21 Oct 2026)
 ### Changed
 - **New mystical design**: a slowly moving night sky (twinkling stars, gold glimmers, the odd shooting star), yantra mandalas, gold-leaf buttons, ornate card frames with filigree and a passing glint, and Cinzel lettering for headings. The light theme is warm parchment. Motion is calm and stops when the phone's "Remove animations" setting is on.

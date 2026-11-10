@@ -5,8 +5,8 @@ ASTRA — Vedic astrology and tarot companion. This page explains how to delete 
 
 ## In the app (fastest)
 - Open ASTRA and go to **Me → Privacy & data → Delete my account**, then confirm.
-- This immediately deletes everything ASTRA's servers hold about you: your birth details and chart, your story, saved tarot draws, backups, consent records and notification settings, plus usage counters, usage events and any feedback or reports you sent. Your sign-in account is deleted too.
-- Data on the phone is cleared at the same time. Uninstalling the app alone does **not** delete your account.
+- This immediately deletes everything ASTRA's servers hold about you: your calculated chart facts, your story, saved tarot draws, backups, consent records and notification settings, plus usage counters, usage events and any feedback or reports you sent. Your sign-in account is deleted too.
+- Your birth details are kept only on your phone, and are cleared from it at the same time. Uninstalling the app alone does **not** delete your account.
 
 ## Without the app
 - If you no longer have the app, write to {{CONTACT}} with the subject "Delete my ASTRA account" from the email address of the Google account you linked in ASTRA (Me → Account).
