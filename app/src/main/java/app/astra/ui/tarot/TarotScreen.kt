@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -221,12 +223,13 @@ private fun SpreadCards(width: Dp) {
     val d = TarotState.draw ?: return
     if (d.question.isNotBlank()) Text("“${d.question}”", style = Astra.type.heading, color = c.text)
     Overline(d.spread.title + if (d.day != null) " · ${d.day}" else "", color = c.lavender)
-    val cardW = if (d.cards.size == 1) min(width * 0.55f, 260.dp) else min((width - 28.dp) / 3, 230.dp)
+    val cardW = if (d.cards.size == 1) min(width * 0.55f, 260.dp) else min((width - 32.dp) / 3, 230.dp)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
         d.cards.forEachIndexed { i, dc ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Each column is exactly one card wide, so a long position label wraps instead of squeezing the next card.
+            Column(Modifier.width(cardW), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TarotCardView(dc.card, dc.reversed, TarotState.revealed.getOrElse(i) { false }, cardW, Modifier.testTag("card$i"), onClick = { TarotState.reveal(i) })
-                Text(dc.position.uppercase(), style = Astra.type.overline, color = c.lavender)
+                Text(dc.position.uppercase(), style = Astra.type.overline, color = c.lavender, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         }
     }
